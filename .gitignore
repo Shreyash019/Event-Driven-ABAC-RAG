@@ -4,4 +4,13 @@ node_modules
 
 .nx/cache
 .nx/workspace-data
-.nx/migrate-runs
+.nx/migrate-runsnode_modules/
+dist/
+.nx/cache/
+.nx/workspace-data/
+target/
+build/
+.venv/
+__pycache__/
+*.pyc
+apps/services/rag-gateway-service/bin/

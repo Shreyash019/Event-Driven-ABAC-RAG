@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@arac/types": ["packages/ts/types/src/index.ts"],
+      "@arac/ui": ["packages/ts/ui/src/index.ts"],
+      "@arac/config": ["packages/ts/config/src/index.ts"]
+    }
+  }
+}
