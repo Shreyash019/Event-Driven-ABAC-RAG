@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { RagQueryResult } from "@arac/types";
 
 // search-mfe remote. Mounted at /search by the shell host (basePath: /search).
@@ -17,7 +16,9 @@ export default function SearchHome() {
         {JSON.stringify(SAMPLE, null, 2)}
       </pre>
       <p>
-        <Link href="/">← Back to shell</Link>
+        {/* plain <a>: cross-zone nav is a hard navigation, and this escapes
+            search-mfe's basePath so it targets the shell host root, not /search */}
+        <a href="/">← Back to shell</a>
       </p>
     </main>
   );

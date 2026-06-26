@@ -2,6 +2,10 @@
 FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /app
+# Next bakes rewrites() destinations at BUILD time, so the remote URL must be
+# present now (runtime env is ignored). Defaults to the compose service DNS name.
+ARG SEARCH_MFE_URL=http://search-mfe:3001
+ENV SEARCH_MFE_URL=$SEARCH_MFE_URL
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter shell build

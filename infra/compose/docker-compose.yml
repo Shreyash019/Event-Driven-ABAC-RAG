@@ -51,8 +51,9 @@ services:
     build:
       context: ../..
       dockerfile: apps/web/shell/Dockerfile
-    environment:
-      SEARCH_MFE_URL: http://search-mfe:3001
+      args:
+        # baked into the rewrite at build time (Next resolves rewrites then)
+        SEARCH_MFE_URL: http://search-mfe:3001
     ports: ["3000:3000"]
     depends_on: [search-mfe]
     restart: unless-stopped

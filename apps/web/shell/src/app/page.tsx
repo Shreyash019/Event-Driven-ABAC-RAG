@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 // Shell host (Multi-Zones). The /search route is served by the search-mfe
 // remote, composed in via rewrites in next.config.ts.
 export default function Home() {
@@ -8,7 +6,9 @@ export default function Home() {
       <h1>ARAC — Shell</h1>
       <p>Microfrontend host. The search experience is a separate zone (search-mfe).</p>
       <p>
-        <Link href="/search">Go to Search →</Link>
+        {/* plain <a>: /search is a separate zone, so force a hard navigation
+            (no client-side routing / prefetch into the proxied remote) */}
+        <a href="/search">Go to Search →</a>
       </p>
     </main>
   );
