@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 // Multi-Zones host (shell). Composes the independently-built `search-mfe` remote
@@ -10,6 +11,10 @@ import type { NextConfig } from "next";
 const SEARCH_MFE_URL = process.env.SEARCH_MFE_URL ?? "http://localhost:3001";
 
 const nextConfig: NextConfig = {
+  // self-contained server bundle for the Docker runtime stage
+  output: "standalone",
+  // trace workspace deps from the monorepo root for standalone output
+  outputFileTracingRoot: path.join(process.cwd(), "../../.."),
   // @arac/* libs ship raw TS source; let Next compile them.
   transpilePackages: ["@arac/types", "@arac/ui"],
   async rewrites() {

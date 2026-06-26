@@ -26,7 +26,7 @@
       "backend": [
         {
           "url_pattern": "/auth/login",
-          "host": ["http://host.docker.internal:3000"]
+          "host": ["http://auth-service:3000"]
         }
       ]
     },
@@ -37,7 +37,7 @@
       "backend": [
         {
           "url_pattern": "/auth/refresh",
-          "host": ["http://host.docker.internal:3000"]
+          "host": ["http://auth-service:3000"]
         }
       ]
     },
@@ -48,7 +48,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://auth-service:3000/.well-known/jwks.json",
           "disable_jwk_security": true,
           "propagate_claims": [
             ["sub", "X-Identity-Subject"],
@@ -61,7 +61,7 @@
       "backend": [
         {
           "url_pattern": "/rag/query",
-          "host": ["http://host.docker.internal:8081"]
+          "host": ["http://rag-gateway-service:8081"]
         }
       ]
     }

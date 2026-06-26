@@ -6,8 +6,11 @@ install:        ## install all JS deps + sync Python workspace
 	pnpm install
 	uv sync
 
-up:             ## start local infra (qdrant, redis, gateway)
-	$(COMPOSE) up -d
+up:             ## build + run the WHOLE stack (infra + services + frontends)
+	$(COMPOSE) up -d --build
+
+infra:          ## start only infra (qdrant, redis, gateway)
+	$(COMPOSE) up -d qdrant redis gateway
 
 down:           ## stop local infra
 	$(COMPOSE) down

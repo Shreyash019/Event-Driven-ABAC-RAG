@@ -9,15 +9,63 @@ services:
     ports: ["6379:6379"]
     volumes: ["redis_data:/data"]
 
-  # API gateway / ABAC trust boundary. Reaches host-run services (nx serve) via
-  # host.docker.internal; see infra/gateway/README.md.
-  gateway:
+  # --- application services -------------------------------------------------
+
+  auth-service: # Nest.js — login, token issue/refresh, JWKS
+    build:
+      context: ../..
+      dockerfile: apps/services/auth-service/Dockerfile
+    environment:
+      PORT: "3000"
+    ports: ["4000:3000"] # host 4000 -> container 3000 (avoids clash with shell)
+    restart: unless-stopped
+
+  ingestion-retrieval-service: # Python — async ingestion consumer + retrieval
+    build:
+      context: ../..
+      dockerfile: apps/services/ingestion-retrieval-service/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+    depends_on: [redis, qdrant]
+    restart: unless-stopped
+
+  rag-gateway-service: # Go — ABAC matrix + retrieval orchestration + LLM
+    build:
+      context: ../../apps/services/rag-gateway-service
+    environment:
+      PORT: "8081"
+    ports: ["8081:8081"]
+    depends_on: [ingestion-retrieval-service]
+    restart: unless-stopped
+
+  # --- microfrontends -------------------------------------------------------
+
+  search-mfe: # Next.js remote, mounted by shell under /search
+    build:
+      context: ../..
+      dockerfile: apps/web/search-mfe/Dockerfile
+    ports: ["3001:3001"]
+    restart: unless-stopped
+
+  shell: # Next.js host; proxies /search to search-mfe
+    build:
+      context: ../..
+      dockerfile: apps/web/shell/Dockerfile
+    environment:
+      SEARCH_MFE_URL: http://search-mfe:3001
+    ports: ["3000:3000"]
+    depends_on: [search-mfe]
+    restart: unless-stopped
+
+  # --- gateway / trust boundary --------------------------------------------
+
+  gateway: # KrakenD — authN, strip+inject identity, route, rate-limit
     image: devopsfaith/krakend:2.7
     ports: ["8080:8080"]
     volumes: ["../gateway:/etc/krakend:ro"]
     command: ["run", "-c", "/etc/krakend/krakend.json"]
-    extra_hosts: ["host.docker.internal:host-gateway"]
-    depends_on: [redis, qdrant]
+    depends_on: [auth-service, rag-gateway-service]
+    restart: unless-stopped
 
 volumes:
   qdrant_data:
