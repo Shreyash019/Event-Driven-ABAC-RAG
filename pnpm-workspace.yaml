@@ -1,0 +1,7 @@
+packages:
+  - "apps/web/*"
+  - "apps/services/auth-service"
+  - "apps/services/rag-gateway-service"
+  - "apps/services/ingestion-retrieval-service"
+  - "packages/ts/*"
+  - "packages/contracts"

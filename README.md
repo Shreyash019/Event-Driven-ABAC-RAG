@@ -6,22 +6,28 @@ Standard RAG apps are prone to cross-departmental data leaks and AI hallucinatio
 
 ## Key Features
 
-- **Polyglot microservices** — Nest.js for high-concurrency API/network I/O, Python for ML/embedding compute, Go for retrieval.
+- **Polyglot microservices** — Nest.js for authentication, Go for RAG orchestration + LLM generation (high concurrency), Python for ingestion + retrieval (ML/embeddings). Additional services (notification, analytics, …) slot in per workload behind a shared API gateway.
 - **Zero data bleed (ABAC)** — access control is enforced at the vector-database level. A "Finance" user's query mathematically excludes "HR"/"Confidential" documents *before* semantic search runs.
 - **Asynchronous ingestion** — Redis as a message broker; document indexing runs in the background so ML work never blocks the API thread.
 - **Anti-hallucination retrieval** — hybrid search (dense + sparse) with citation-backed, strictly grounded LLM responses.
 
 ## Architecture
 
-| Layer | Technology |
-| --- | --- |
-| API Gateway / Retrieval | Nest.js (TypeScript) |
-| Retrieval Service | Go |
-| Ingestion Worker | Python 3.11 · LangChain · HuggingFace embeddings |
-| Microfrontends | Next.js (host shell + remotes via Module Federation) |
-| Vector Database | Qdrant |
-| Message Broker | Redis |
-| LLM Generation | OpenAI API (strictly grounded) |
+| Layer | Technology | Service |
+| --- | --- | --- |
+| API Gateway (authN, routing, rate-limit) | KrakenD (off-the-shelf) | `gateway` |
+| Authentication (login, tokens, users) | Nest.js (TypeScript) | `auth-service` |
+| RAG orchestration + LLM generation | Go | `rag-gateway-service` |
+| Ingestion + Retrieval | Python 3.11 · LangChain · HuggingFace | `ingestion-retrieval-service` |
+| Microfrontends | Next.js (shell + remotes via Module Federation) | `shell`, `search-mfe` |
+| Notification, Analytics, … | TBD (per workload) | _future_ |
+| Vector Database | Qdrant | — |
+| Message Broker | Redis | — |
+| LLM Generation | OpenAI API (strictly grounded) | — |
+
+**Request flow:** Next.js → `gateway` (validates JWT, injects verified identity claims as trusted headers, routes) → service. For a query: `gateway` → `rag-gateway-service` (builds the ABAC security matrix from verified claims, orchestrates + calls the LLM) → `ingestion-retrieval-service` (hybrid search over Qdrant, ABAC filter applied at the DB level). `auth-service` issues/refreshes tokens. Ingestion is asynchronous: document events go to Redis and `ingestion-retrieval-service` consumes them in the background.
+
+> **Security boundary:** the gateway strips any client-supplied identity headers and injects only server-verified claims — access scope is never taken from the client (see `loc-doc/GUARDRAILS.md` §1.3).
 
 The monorepo is orchestrated with **Nx** (task graph + caching), using each language's native workspace tooling underneath: **pnpm** (JS/TS), **uv** (Python), and **go.work** (Go).
 
@@ -29,7 +35,7 @@ The monorepo is orchestrated with **Nx** (task graph + caching), using each lang
 
 ```
 apps/
-  services/        # backend microservices (gateway-nest, ingestion-py, retriever-go)
+  services/        # backend microservices (gateway, auth-service, rag-gateway-service, ingestion-retrieval-service, …)
   web/             # Next.js microfrontends (shell + remotes)
 packages/
   ts/              # shared TS libs (@arac/types, @arac/ui, @arac/config)
