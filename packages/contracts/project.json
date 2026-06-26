@@ -1,0 +1,18 @@
+{
+  "name": "contracts",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:contracts"],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "buf lint", "cwd": "packages/contracts/proto" },
+      "cache": true
+    },
+    "gen": {
+      "executor": "nx:run-commands",
+      "options": { "command": "buf generate", "cwd": "packages/contracts/proto" },
+      "outputs": ["{workspaceRoot}/packages/go/gen", "{workspaceRoot}/packages/py/src/arac_contracts/gen"]
+    }
+  }
+}

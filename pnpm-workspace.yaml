@@ -1,5 +1,11 @@
 packages:
   - "apps/web/*"
   - "apps/services/auth-service"
+  # add other TS/Nest services here as you create them
   - "packages/ts/*"
   - "packages/contracts"
+
+# native deps create-next-app opted out of building; kept at the workspace root
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver

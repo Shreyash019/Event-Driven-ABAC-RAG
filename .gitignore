@@ -1,16 +1,27 @@
 loc-doc
-node_modules
 
-
-.nx/cache
-.nx/workspace-data
-.nx/migrate-runsnode_modules/
+# JS / Node
+node_modules/
 dist/
+build/
+.next/
+*.tsbuildinfo
+coverage/
+.turbo/
+
+# Nx
 .nx/cache/
 .nx/workspace-data/
+.nx/migrate-runs/
+
+# Go
 target/
-build/
+apps/services/rag-gateway-service/bin/
+
+# Python
 .venv/
 __pycache__/
 *.pyc
-apps/services/rag-gateway-service/bin/
+
+# misc
+.DS_Store

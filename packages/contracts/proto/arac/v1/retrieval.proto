@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package arac.v1;
+
+option go_package = "github.com/codebasics/arac/packages/go/gen/arac/v1;aracv1";
+
+// RetrievalService is the internal RPC surface between rag-gateway-service (Go)
+// and ingestion-retrieval-service (Python). It runs ABAC-filtered hybrid search
+// over the vector store; the security matrix is applied at the database level
+// before semantic ranking, so out-of-scope documents never reach the ranker.
+service RetrievalService {
+  // Search runs hybrid (dense + sparse) retrieval scoped by the caller's
+  // verified ABAC claims and returns citation-backed chunks.
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+// SecurityContext carries the server-verified identity claims used to build the
+// ABAC filter. These are injected by rag-gateway-service from trusted gateway
+// headers and are never taken from the client.
+message SecurityContext {
+  // Tenant the request belongs to.
+  string tenant_id = 1;
+
+  // Verified subject (user) making the request.
+  string subject_id = 2;
+
+  // Access scopes the subject is entitled to (e.g. "finance", "hr").
+  // A document is eligible only if its scope intersects this set.
+  repeated string scopes = 3;
+
+  // Maximum data classification the subject may see (e.g. "internal",
+  // "confidential"). Documents above this level are excluded at the DB level.
+  string max_classification = 4;
+}
+
+message SearchRequest {
+  // Natural-language query to retrieve against.
+  string query = 1;
+
+  // Number of chunks to return after ranking.
+  uint32 top_k = 2;
+
+  // ABAC claims applied as a pre-filter before semantic search.
+  SecurityContext security = 3;
+}
+
+// RetrievedChunk is a single citation-backed passage.
+message RetrievedChunk {
+  // Source document identifier.
+  string document_id = 1;
+
+  // Stable identifier of the chunk within the document.
+  string chunk_id = 2;
+
+  // Chunk text used to ground the LLM response.
+  string content = 3;
+
+  // Hybrid relevance score (higher is more relevant).
+  float score = 4;
+
+  // Arbitrary citation metadata (title, page, url, …).
+  map<string, string> metadata = 5;
+}
+
+message SearchResponse {
+  // Ranked chunks that passed the ABAC filter.
+  repeated RetrievedChunk chunks = 1;
+}

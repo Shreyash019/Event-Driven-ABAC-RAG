@@ -1,0 +1,32 @@
+{
+  "name": "rag-gateway-service",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "tags": ["type:service", "scope:rag", "lang:go"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go build -o bin/rag ./...",
+        "cwd": "apps/services/rag-gateway-service"
+      },
+      "outputs": ["{projectRoot}/bin"],
+      "cache": true
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run ./cmd/rag",
+        "cwd": "apps/services/rag-gateway-service"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test ./...",
+        "cwd": "apps/services/rag-gateway-service"
+      },
+      "cache": true
+    }
+  }
+}

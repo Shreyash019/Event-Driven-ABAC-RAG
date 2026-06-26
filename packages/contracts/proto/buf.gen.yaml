@@ -1,0 +1,14 @@
+version: v2
+plugins:
+  # Go stubs land in the packages/go shared module (gen/arac/v1/…).
+  # paths=source_relative mirrors the proto tree instead of nesting under the
+  # full go_package import path.
+  - remote: buf.build/protocolbuffers/go
+    out: ../../go/gen
+    opt: paths=source_relative
+  # Python message classes + type stubs land inside the arac-contracts package
+  # (packages/py) so they ship as arac_contracts.gen.*.
+  - remote: buf.build/protocolbuffers/python
+    out: ../../py/src/arac_contracts/gen
+  - remote: buf.build/protocolbuffers/pyi
+    out: ../../py/src/arac_contracts/gen

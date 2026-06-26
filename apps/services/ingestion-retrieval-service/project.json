@@ -1,0 +1,31 @@
+{
+  "name": "ingestion-retrieval-service",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "tags": ["type:service", "scope:ingestion", "lang:python"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run python -m ingestion_retrieval_service",
+        "cwd": "apps/services/ingestion-retrieval-service"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "apps/services/ingestion-retrieval-service"
+      },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff check .",
+        "cwd": "apps/services/ingestion-retrieval-service"
+      },
+      "cache": true
+    }
+  }
+}
