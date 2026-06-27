@@ -1,8 +1,7 @@
 import type { RagQueryResult } from "@arac/types";
 
 // ragapp remote. Mounted at /rag by the mainapp host (basePath: /rag).
-// Owns all RAG / LLM / AI surfaces. Imports the shared @arac/types DTO to
-// exercise cross-package wiring.
+// Header/Footer come from <AppShell> in layout.tsx — page only renders content.
 const SAMPLE: RagQueryResult = {
   answer: "Wire me to /api/rag/query through the gateway.",
   citations: [],
@@ -10,17 +9,20 @@ const SAMPLE: RagQueryResult = {
 
 export default function RagHome() {
   return (
-    <main style={{ maxWidth: 720, margin: "4rem auto", padding: "0 1rem", fontFamily: "system-ui" }}>
-      <h1>ARAC — RAG (remote)</h1>
-      <p>This page is served by the ragapp zone and composed into the main app.</p>
-      <pre style={{ background: "#f4f4f4", padding: "1rem", borderRadius: 8 }}>
+    <section>
+      <h1 className="text-2xl font-bold">ARAC — RAG (remote)</h1>
+      <p className="mt-2 text-foreground/70">
+        This page is served by the ragapp zone and composed into the main app.
+      </p>
+      <pre className="mt-4 rounded-lg bg-black/5 p-4 text-sm dark:bg-white/10">
         {JSON.stringify(SAMPLE, null, 2)}
       </pre>
-      <p>
-        {/* plain <a>: cross-zone nav is a hard navigation, and this escapes
-            ragapp's basePath so it targets the main app host root, not /rag */}
-        <a href="/">← Back to main app</a>
+      <p className="mt-4">
+        {/* plain <a>: cross-zone nav is a hard navigation, escapes basePath */}
+        <a href="/" className="text-blue-600 hover:underline">
+          ← Back to main app
+        </a>
       </p>
-    </main>
+    </section>
   );
 }

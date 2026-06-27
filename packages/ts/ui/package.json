@@ -13,6 +13,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
+    "@arac/types": "workspace:*",
     "next-themes": "^0.4.6"
   },
   "peerDependencies": {
@@ -20,7 +21,7 @@
     "react-dom": "^19"
   },
   "exports": {
-  ".": "./src/index.ts",
-  "./theme.css": "./src/theme/theme.css"
-}
+    ".": "./src/index.ts",
+    "./theme.css": "./src/theme/theme.css"
+  }
 }
