@@ -10,7 +10,7 @@ const base: CSSProperties = {
   fontFamily: "system-ui, sans-serif",
 };
 
-export function AppContainer({ children, maxWidth = 960 }: AppContainerProps) {
+export function AppContainer({ children, maxWidth = 4440 }: AppContainerProps) {
   return (
     <main style={{ ...base, maxWidth }}>
       {children}
