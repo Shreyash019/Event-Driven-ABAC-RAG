@@ -1,26 +1,13 @@
 @import "tailwindcss";
+@import "@arac/ui/theme.css";
+
 /* also scan the shared @arac/ui package for class names (v4 only auto-detects this app) */
 @source "../../../../../packages/ts/ui/src";
 
-/* Custom base styles MUST live in @layer base, otherwise (being unlayered) they
-   would override every Tailwind utility — that's why `p-*`/`m-*` "stopped working".
-   Tailwind's preflight already handles box-sizing, margin reset, and link color. */
+/* tokens (:root / .dark) live in @arac/ui/theme.css — single source of truth.
+   Keep only app-specific base styles here, inside @layer base so Tailwind
+   utilities still win over them. */
 @layer base {
-  :root {
-    --background: #ffffff;
-    --foreground: #171717;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: #0a0a0a;
-      --foreground: #ededed;
-    }
-    html {
-      color-scheme: dark;
-    }
-  }
-
   html {
     height: 100%;
   }
