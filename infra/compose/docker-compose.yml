@@ -17,7 +17,7 @@ services:
       dockerfile: apps/services/auth-service/Dockerfile
     environment:
       PORT: "3000"
-    ports: ["4000:3000"] # host 4000 -> container 3000 (avoids clash with shell)
+    ports: ["4000:3000"] # host 4000 -> container 3000 (avoids clash with mainapp)
     restart: unless-stopped
 
   ingestion-retrieval-service: # Python — async ingestion consumer + retrieval
@@ -40,22 +40,22 @@ services:
 
   # --- microfrontends -------------------------------------------------------
 
-  search-mfe: # Next.js remote, mounted by shell under /search
+  ragapp: # Next.js remote (RAG/LLM/AI), mounted by mainapp under /rag
     build:
       context: ../..
-      dockerfile: apps/web/search-mfe/Dockerfile
+      dockerfile: apps/web/ragapp/Dockerfile
     ports: ["3001:3001"]
     restart: unless-stopped
 
-  shell: # Next.js host; proxies /search to search-mfe
+  mainapp: # Next.js host; proxies /rag to ragapp
     build:
       context: ../..
-      dockerfile: apps/web/shell/Dockerfile
+      dockerfile: apps/web/mainapp/Dockerfile
       args:
         # baked into the rewrite at build time (Next resolves rewrites then)
-        SEARCH_MFE_URL: http://search-mfe:3001
+        RAG_APP_URL: http://ragapp:3001
     ports: ["3000:3000"]
-    depends_on: [search-mfe]
+    depends_on: [ragapp]
     restart: unless-stopped
 
   # --- gateway / trust boundary --------------------------------------------

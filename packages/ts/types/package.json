@@ -2,10 +2,10 @@
   "name": "@arac/types",
   "version": "0.0.0",
   "main": "src/index.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "type": "commonjs",
+  "type": "module",
   "types": "src/index.ts",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
 }

@@ -19,7 +19,7 @@ Standard RAG apps are prone to cross-departmental data leaks and AI hallucinatio
 | Authentication (login, tokens, users) | Nest.js (TypeScript) | `auth-service` |
 | RAG orchestration + LLM generation | Go | `rag-gateway-service` |
 | Ingestion + Retrieval | Python 3.11 · LangChain · HuggingFace | `ingestion-retrieval-service` |
-| Microfrontends | Next.js (shell + remotes via Module Federation) | `shell`, `search-mfe` |
+| Microfrontends | Next.js (Multi-Zones: host + remotes) | `mainapp`, `ragapp` |
 | Notification, Analytics, … | TBD (per workload) | _future_ |
 | Vector Database | Qdrant | — |
 | Message Broker | Redis | — |
@@ -36,7 +36,7 @@ The monorepo is orchestrated with **Nx** (task graph + caching), using each lang
 ```
 apps/
   services/        # backend microservices (gateway, auth-service, rag-gateway-service, ingestion-retrieval-service, …)
-  web/             # Next.js microfrontends (shell + remotes)
+  web/             # Next.js microfrontends (mainapp host + ragapp remote)
 packages/
   ts/              # shared TS libs (@arac/types, @arac/ui, @arac/config)
   contracts/       # cross-language API contracts (OpenAPI)
