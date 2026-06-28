@@ -54,6 +54,28 @@
       ]
     },
     {
+      "endpoint": "/api/auth/users",
+      "method": "GET",
+      "input_headers": ["Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/users",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/users/{id}/grant",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/users/{id}/grant",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
       "endpoint": "/api/auth/refresh",
       "method": "POST",
       "input_headers": ["Content-Type", "Authorization", "Cookie"],

@@ -25,8 +25,60 @@ model User {
   department   String
   clearance    Int
   status       UserStatus @default(ACTIVE)
+  roles        UserRole[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([tenant])
+}
+
+// ---------------------------------------------------------------------------
+// RBAC (authorization) — separate from ABAC (data access). DB-managed so roles
+// and their permissions can be edited at runtime; checks resolve from here.
+// ---------------------------------------------------------------------------
+
+// A fine-grained capability. Code checks permissions, never role names.
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique // e.g. "users:read"
+  description String
+  roles       RolePermission[]
+}
+
+// A named bundle of permissions. `parent` gives hierarchy: a role inherits all
+// of its ancestors' permissions (sub-roles).
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String
+  parentId    String?
+  parent      Role?            @relation("RoleHierarchy", fields: [parentId], references: [id])
+  children    Role[]           @relation("RoleHierarchy")
+  permissions RolePermission[]
+  assignments UserRole[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// Assigns a role to a user, scoped to a tenant/department. NULL scope = applies
+// everywhere (e.g. super-admin). A scoped assignment limits the role's reach
+// (e.g. dept-admin for tenant=acme, department=finance only).
+model UserRole {
+  id              String  @id @default(cuid())
+  userId          String
+  roleId          String
+  scopeTenant     String? // null = all tenants
+  scopeDepartment String? // null = all departments
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role            Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, scopeTenant, scopeDepartment])
+  @@index([userId])
 }

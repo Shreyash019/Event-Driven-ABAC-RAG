@@ -14,6 +14,9 @@ import { IDENTITY_PROVIDER } from './users/user.store';
 import { PrismaIdentityProvider } from './users/prisma-identity.provider';
 import { REFRESH_TTL_SECONDS, SESSION_STORE } from './sessions/session.store';
 import { RedisSessionStore } from './sessions/redis-session.store';
+import { RbacService } from './rbac/rbac.service';
+import { AdminService } from './admin/admin.service';
+import { AdminController } from './admin/admin.controller';
 
 /**
  * Composition root. ConfigModule loads + validates the environment via
@@ -26,7 +29,7 @@ import { RedisSessionStore } from './sessions/redis-session.store';
  */
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] })],
-  controllers: [AuthController, JwksController],
+  controllers: [AuthController, JwksController, AdminController],
   providers: [
     {
       provide: JWT_CONFIG,
@@ -51,6 +54,8 @@ import { RedisSessionStore } from './sessions/redis-session.store';
     { provide: SESSION_STORE, useClass: RedisSessionStore },
     TokenService,
     AuthService,
+    RbacService,
+    AdminService,
   ],
 })
 export class AppModule {}

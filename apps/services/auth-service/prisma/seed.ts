@@ -35,7 +35,97 @@ const SEED_USERS = [
     clearance: 2,
     passwordEnv: 'SEED_HR_PASSWORD',
   },
+  {
+    email: 'admin@acme.test',
+    name: 'Adam Admin',
+    tenant: 'acme',
+    department: 'it',
+    clearance: 5,
+    passwordEnv: 'SEED_ADMIN_PASSWORD',
+  },
 ] as const;
+
+// RBAC seed: fine-grained permissions, a role hierarchy, and their mappings.
+const PERMISSIONS: Array<[key: string, description: string]> = [
+  ['users:read', 'View users within scope'],
+  ['users:grant', "Set a user's tenant/department/clearance"],
+  ['users:assign-role', 'Assign or remove roles for users'],
+  ['roles:manage', 'Create and edit roles and permissions'],
+];
+
+// `parent` defines the hierarchy: a role inherits all ancestor permissions.
+// Each role lists only its OWN direct permissions (inheritance resolved at runtime).
+const ROLES: Array<{
+  name: string;
+  description: string;
+  parent: string | null;
+  perms: string[];
+}> = [
+  { name: 'user', description: 'Base role', parent: null, perms: [] },
+  {
+    name: 'dept-admin',
+    description: "Manage users within one's department",
+    parent: 'user',
+    perms: ['users:read', 'users:grant'],
+  },
+  {
+    name: 'user-admin',
+    description: 'Manage users and assign roles',
+    parent: 'dept-admin',
+    perms: ['users:assign-role'],
+  },
+  {
+    name: 'super-admin',
+    description: 'Full control including role management',
+    parent: 'user-admin',
+    perms: ['roles:manage'],
+  },
+];
+
+async function seedRbac(): Promise<void> {
+  for (const [key, description] of PERMISSIONS) {
+    await prisma.permission.upsert({ where: { key }, update: { description }, create: { key, description } });
+  }
+  // Create roles first (so parents exist), then wire parent + permissions.
+  for (const r of ROLES) {
+    await prisma.role.upsert({
+      where: { name: r.name },
+      update: { description: r.description },
+      create: { name: r.name, description: r.description },
+    });
+  }
+  for (const r of ROLES) {
+    const role = await prisma.role.findUniqueOrThrow({ where: { name: r.name } });
+    const parent = r.parent
+      ? await prisma.role.findUniqueOrThrow({ where: { name: r.parent } })
+      : null;
+    const perms = await prisma.permission.findMany({ where: { key: { in: r.perms } } });
+
+    await prisma.role.update({ where: { id: role.id }, data: { parentId: parent?.id ?? null } });
+    // Reset to the desired permission set (idempotent).
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    if (perms.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
+      });
+    }
+  }
+
+  // Grant super-admin (global scope) to the seeded admin user.
+  const admin = await prisma.user.findUnique({ where: { email: 'admin@acme.test' } });
+  const superAdmin = await prisma.role.findUnique({ where: { name: 'super-admin' } });
+  if (admin && superAdmin) {
+    const existing = await prisma.userRole.findFirst({
+      where: { userId: admin.id, roleId: superAdmin.id, scopeTenant: null, scopeDepartment: null },
+    });
+    if (!existing) {
+      await prisma.userRole.create({
+        data: { userId: admin.id, roleId: superAdmin.id, scopeTenant: null, scopeDepartment: null },
+      });
+    }
+    console.log('granted super-admin to admin@acme.test');
+  }
+}
 
 async function main(): Promise<void> {
   const isProd = (process.env.NODE_ENV ?? 'development') === 'production';
@@ -70,6 +160,8 @@ async function main(): Promise<void> {
     });
     console.log(`seeded ${email}`);
   }
+
+  await seedRbac();
 }
 
 main()
