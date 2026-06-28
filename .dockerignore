@@ -1,6 +1,7 @@
 **/node_modules
 **/.next
 **/dist
+**/*.tsbuildinfo
 **/bin
 **/.venv
 **/__pycache__
@@ -11,3 +12,7 @@
 **/coverage
 loc-doc
 **/.DS_Store
+# Never bake secrets into an image (GUARDRAILS §5.1) — injected at runtime via env_file
+**/.env
+**/.env.*
+**/*.pem

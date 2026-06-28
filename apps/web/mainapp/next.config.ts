@@ -9,7 +9,7 @@ import type { NextConfig } from "next";
 // We use Next.js Multi-Zones instead of webpack Module Federation
 // (@module-federation/nextjs-mf): that plugin supports only Next 12–15 + Pages
 // Router, while this repo is on Next 16 + App Router. See apps/web/README.md.
-const RAG_APP_URL = process.env.RAG_APP_URL ?? "http://localhost:3001";
+const RAG_APP_URL = process.env.RAG_APP_URL ?? "http://localhost:3015";
 
 const nextConfig: NextConfig = {
   // self-contained server bundle for the Docker runtime stage

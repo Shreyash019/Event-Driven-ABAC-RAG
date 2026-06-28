@@ -23,5 +23,11 @@ apps/services/rag-gateway-service/bin/
 __pycache__/
 *.pyc
 
+# Secrets / local env (GUARDRAILS §5.1/§5.2) — keep .env.example only
+.env
+.env.*
+!.env.example
+*.pem
+
 # misc
 .DS_Store

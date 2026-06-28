@@ -8,10 +8,11 @@
   "output_encoding": "no-op",
   "extra_config": {
     "security/cors": {
-      "allow_origins": ["http://localhost:3000", "http://localhost:3001"],
+      "allow_origins": ["http://localhost:3013", "http://localhost:3015"],
       "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      "allow_headers": ["Origin", "Authorization", "Content-Type"],
+      "allow_headers": ["Origin", "Authorization", "Content-Type", "Cookie"],
       "expose_headers": ["Content-Length"],
+      "allow_credentials": true,
       "max_age": "12h"
     },
     "router": {
@@ -31,12 +32,67 @@
       ]
     },
     {
+      "endpoint": "/api/auth/signup",
+      "method": "POST",
+      "input_headers": ["Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/auth/signup",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/change-password",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/change-password",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
       "endpoint": "/api/auth/refresh",
       "method": "POST",
-      "input_headers": ["Content-Type", "Authorization"],
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
       "backend": [
         {
           "url_pattern": "/auth/refresh",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/me",
+      "method": "GET",
+      "input_headers": ["Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/me",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/logout",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/logout",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/logout-all",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/logout-all",
           "host": ["http://auth-service:3000"]
         }
       ]

@@ -39,7 +39,7 @@ export function Header({ nav = DEFAULT_NAV, user, logoSrc = DEFAULT_LOGO }: Head
             <UserMenu user={user} />
           ) : (
             <a
-              href="/api/auth/login"
+              href="/login"
               className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5"
             >
               Sign in

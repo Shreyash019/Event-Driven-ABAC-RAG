@@ -2,21 +2,29 @@ import { cookies } from "next/headers";
 import type { SessionUser } from "@arac/types";
 
 /**
- * Reads the authenticated user for SSR. The httpOnly session cookie (set behind
- * the gateway) is the single source of truth — both zones read the same cookie on
- * the shared origin, so the header shows a consistent login state everywhere.
+ * Resolves the authenticated user for SSR. Runs only on the server: it reads the httpOnly
+ * `arac_session` cookie (never exposed to client JS) and asks the gateway `/api/auth/me`,
+ * which validates the token and returns the minimal SessionUser. The raw token never
+ * reaches the browser, and only the minimal identity is surfaced (data minimization/GDPR).
  *
- * TODO: replace the stub with a real verification — either decode/verify the JWT,
- * or fetch `/api/auth/me` through the gateway with the incoming cookie. Until the
- * auth flow exists, this returns null (signed-out → header shows "Sign in").
+ * Returns null when signed out or the token is invalid/expired → the UI shows "Sign in".
+ * Silent refresh of an expired access token happens in middleware (it can set cookies;
+ * a Server Component render cannot).
  */
-export async function getSession(): Promise<SessionUser | null> {
-  const token = (await cookies()).get("arac_session")?.value;
-  if (!token) return null;
+const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8080";
 
-  // const res = await fetch(`${process.env.GATEWAY_URL}/api/auth/me`, {
-  //   headers: { cookie: `arac_session=${token}` }, cache: "no-store",
-  // });
-  // return res.ok ? ((await res.json()) as SessionUser) : null;
-  return null;
+export async function getSession(): Promise<SessionUser | null> {
+  const accessToken = (await cookies()).get("arac_session")?.value;
+  if (!accessToken) return null;
+
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/auth/me`, {
+      headers: { cookie: `arac_session=${accessToken}` },
+      cache: "no-store",
+    });
+    return res.ok ? ((await res.json()) as SessionUser) : null;
+  } catch {
+    // Gateway unreachable → treat as signed out (fail closed), never throw into render.
+    return null;
+  }
 }

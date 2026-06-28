@@ -15,9 +15,38 @@ services:
     build:
       context: ../..
       dockerfile: apps/services/auth-service/Dockerfile
+    # Secrets (RS256 key, seed passwords) come from a git-ignored env file, never the
+    # committed compose (GUARDRAILS §5.1). Copy apps/services/auth-service/.env.example
+    # to apps/services/auth-service/.env and fill it in.
+    env_file:
+      - ../../apps/services/auth-service/.env
     environment:
       PORT: "3000"
     ports: ["4000:3000"] # host 4000 -> container 3000 (avoids clash with mainapp)
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-redis:
+        condition: service_started
+    restart: unless-stopped
+
+  auth-postgres: # Postgres — auth-service user store. Local dev creds only; this compose
+    image: postgres:16-alpine #  is dev-only and MUST NOT be deployed as-is (GUARDRAILS §5.4).
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: authpass # matches DATABASE_URL in auth-service/.env
+      POSTGRES_DB: auth
+    volumes: ["auth_pg_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  auth-redis: # Redis — auth-service refresh-token sessions (dedicated, NOT the ingestion broker)
+    image: redis:7-alpine
+    volumes: ["auth_redis_data:/data"]
     restart: unless-stopped
 
   ingestion-retrieval-service: # Python — async ingestion consumer + retrieval
@@ -44,7 +73,7 @@ services:
     build:
       context: ../..
       dockerfile: apps/web/ragapp/Dockerfile
-    ports: ["3001:3001"]
+    ports: ["3015:3001"] # host 3015 -> container 3001
     restart: unless-stopped
 
   mainapp: # Next.js host; proxies /rag to ragapp
@@ -54,7 +83,7 @@ services:
       args:
         # baked into the rewrite at build time (Next resolves rewrites then)
         RAG_APP_URL: http://ragapp:3001
-    ports: ["3000:3000"]
+    ports: ["3013:3000"] # host 3013 -> container 3000
     depends_on: [ragapp]
     restart: unless-stopped
 
@@ -71,3 +100,5 @@ services:
 volumes:
   qdrant_data:
   redis_data:
+  auth_pg_data:
+  auth_redis_data:
