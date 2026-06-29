@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import type { ApiDocsConfig } from './config/configuration';
 
@@ -11,6 +12,10 @@ async function bootstrap() {
 
   // Trust the gateway proxy so `Secure` cookies and the protocol are honored behind it.
   app.set('trust proxy', 1);
+
+  // Security headers. CSP is disabled because this is a JSON API and the only HTML it
+  // serves is the (dev-only) Swagger UI, which CSP would otherwise break.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   // Whitelist strips unknown body fields (a client cannot smuggle identity scope into a
   // DTO, GUARDRAILS §1.3); transform applies class-validator coercion to typed DTOs.

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,11 +9,18 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { SessionUser } from '@arac/types';
 import { AuthService } from './auth/auth.service';
 import { LoginDto } from './auth/dto/login.dto';
-import { ChangePasswordDto, SignupDto } from './auth/dto/account.dto';
+import {
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  SignupDto,
+} from './auth/dto/account.dto';
+import { PasswordResetService } from './auth/password-reset.service';
 import type { AuthResult } from './auth/auth.service';
 import type { CookieConfig } from './config/configuration';
 
@@ -38,6 +46,7 @@ const REFRESH_PATH = '/api/auth';
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly passwordReset: PasswordResetService,
     @Inject(COOKIE_CONFIG) private readonly cookies: CookieConfig,
   ) {}
 
@@ -46,6 +55,7 @@ export class AuthController {
     return { status: 'ok' };
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 10 } }) // brute-force guard
   @Post('auth/login')
   async login(
     @Body() body: LoginDto,
@@ -56,6 +66,7 @@ export class AuthController {
     return this.publicBody(result);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 5 } }) // limit account creation per IP
   @Post('auth/signup')
   async signup(
     @Body() body: SignupDto,
@@ -105,6 +116,22 @@ export class AuthController {
     return { success: true };
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('auth/forgot')
+  async forgot(@Body() body: ForgotPasswordDto): Promise<{ success: true }> {
+    await this.passwordReset.requestReset(body.email);
+    return { success: true }; // always 200 — never reveals whether the email exists
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('auth/reset')
+  async reset(@Body() body: ResetPasswordDto): Promise<{ success: true }> {
+    const ok = await this.passwordReset.reset(body.token, body.newPassword);
+    if (!ok) throw new BadRequestException('Invalid or expired reset token');
+    return { success: true };
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('auth/change-password')
   async changePassword(
     @Body() body: ChangePasswordDto,

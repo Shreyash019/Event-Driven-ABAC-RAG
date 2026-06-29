@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const SECURE_COOKIES = process.env.NODE_ENV === "production";
-const PUBLIC_PATHS = ["/login", "/signup"];
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 /** True if the JWT is absent or within 5s of expiry (decode only — never trust, just route). */
 function accessExpired(jwt?: string): boolean {

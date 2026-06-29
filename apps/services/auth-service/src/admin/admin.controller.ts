@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -10,6 +11,7 @@ import {
 import type { Request } from 'express';
 import { type AdminUserView, AdminService } from './admin.service';
 import { GrantDto } from './dto/grant.dto';
+import { RoleAssignmentDto } from './dto/role.dto';
 
 /**
  * Admin user-management endpoints (gateway: /api/auth/users*). Authentication is the
@@ -23,6 +25,29 @@ export class AdminController {
   @Get()
   async list(@Req() req: Request): Promise<AdminUserView[]> {
     return this.admin.listUsers(accessToken(req));
+  }
+
+  @Get('roles')
+  async roles(@Req() req: Request): Promise<Array<{ name: string; description: string }>> {
+    return this.admin.listRoles(accessToken(req));
+  }
+
+  @Post(':id/roles')
+  async assignRole(
+    @Param('id') id: string,
+    @Body() body: RoleAssignmentDto,
+    @Req() req: Request,
+  ): Promise<AdminUserView> {
+    return this.admin.assignRole(accessToken(req), id, body);
+  }
+
+  @Delete(':id/roles')
+  async removeRole(
+    @Param('id') id: string,
+    @Body() body: RoleAssignmentDto,
+    @Req() req: Request,
+  ): Promise<AdminUserView> {
+    return this.admin.removeRole(accessToken(req), id, body);
   }
 
   @Post(':id/grant')

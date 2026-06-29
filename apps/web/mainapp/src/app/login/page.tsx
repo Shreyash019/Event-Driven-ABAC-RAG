@@ -50,6 +50,10 @@ export default function LoginPage() {
           <a href="/signup" style={styles.link}>
             Create one
           </a>
+          {" · "}
+          <a href="/forgot-password" style={styles.link}>
+            Forgot password?
+          </a>
         </p>
       </form>
     </main>

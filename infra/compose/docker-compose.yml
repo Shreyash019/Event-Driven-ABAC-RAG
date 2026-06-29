@@ -28,6 +28,8 @@ services:
         condition: service_healthy
       auth-redis:
         condition: service_started
+      auth-mailpit:
+        condition: service_started
     restart: unless-stopped
 
   auth-postgres: # Postgres — auth-service user store. Local dev creds only; this compose
@@ -47,6 +49,11 @@ services:
   auth-redis: # Redis — auth-service refresh-token sessions (dedicated, NOT the ingestion broker)
     image: redis:7-alpine
     volumes: ["auth_redis_data:/data"]
+    restart: unless-stopped
+
+  auth-mailpit: # Dev SMTP sink for auth-service emails (SMTP :1025 internal, web UI on :8025)
+    image: axllent/mailpit:latest
+    ports: ["8025:8025"] # open http://localhost:8025 to read reset emails
     restart: unless-stopped
 
   ingestion-retrieval-service: # Python — async ingestion consumer + retrieval

@@ -15,7 +15,22 @@ const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8080";
 // Only these incoming headers are forwarded upstream.
 const FORWARD_REQUEST_HEADERS = ["content-type", "cookie", "authorization"];
 
+/**
+ * CSRF defense: on state-changing requests, require the Origin header to match this app's
+ * own origin. The httpOnly auth cookies are only ever auto-sent to this origin, so a
+ * cross-site page cannot forge a credentialed mutation. Requests without an Origin (non-
+ * browser clients) carry no ambient cookies to abuse, so they pass.
+ */
+function sameOriginOrSafe(req: NextRequest): boolean {
+  if (req.method === "GET" || req.method === "HEAD") return true;
+  const origin = req.headers.get("origin");
+  return !origin || origin === req.nextUrl.origin;
+}
+
 async function proxy(req: NextRequest, segments: string[]): Promise<NextResponse> {
+  if (!sameOriginOrSafe(req)) {
+    return NextResponse.json({ error: "Cross-origin request blocked" }, { status: 403 });
+  }
   const target = `${GATEWAY_URL}/api/auth/${segments.join("/")}`;
 
   const headers = new Headers();

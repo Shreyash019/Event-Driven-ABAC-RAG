@@ -32,3 +32,21 @@ export class ChangePasswordDto {
   @MaxLength(256)
   newPassword!: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'A valid email is required' })
+  @MaxLength(254)
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(512)
+  token!: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MaxLength(256)
+  newPassword!: string;
+}

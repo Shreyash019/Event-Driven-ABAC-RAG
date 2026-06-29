@@ -51,6 +51,7 @@ const PERMISSIONS: Array<[key: string, description: string]> = [
   ['users:grant', "Set a user's tenant/department/clearance"],
   ['users:assign-role', 'Assign or remove roles for users'],
   ['roles:manage', 'Create and edit roles and permissions'],
+  ['org:manage', 'Manage departments, compartments, and memberships'],
 ];
 
 // `parent` defines the hierarchy: a role inherits all ancestor permissions.
@@ -76,9 +77,9 @@ const ROLES: Array<{
   },
   {
     name: 'super-admin',
-    description: 'Full control including role management',
+    description: 'Full control including role and org management',
     parent: 'user-admin',
-    perms: ['roles:manage'],
+    perms: ['roles:manage', 'org:manage'],
   },
 ];
 
@@ -127,6 +128,61 @@ async function seedRbac(): Promise<void> {
   }
 }
 
+// Org tree (single tenant). `parent` is a slug; created parent-first.
+const TENANT = 'acme';
+const DEPARTMENTS: Array<{ slug: string; name: string; parent: string | null }> = [
+  { slug: 'finance', name: 'Finance', parent: null },
+  { slug: 'finance.ap', name: 'Accounts Payable', parent: 'finance' },
+  { slug: 'finance.ar', name: 'Accounts Receivable', parent: 'finance' },
+  { slug: 'hr', name: 'Human Resources', parent: null },
+  { slug: 'it', name: 'IT', parent: null },
+];
+const COMPARTMENTS: Array<{ key: string; name: string }> = [
+  { key: 'M&A', name: 'Mergers & Acquisitions' },
+  { key: 'PII', name: 'Personal Data' },
+];
+
+async function seedOrg(): Promise<void> {
+  for (const d of DEPARTMENTS) {
+    await prisma.department.upsert({
+      where: { tenant_slug: { tenant: TENANT, slug: d.slug } },
+      update: { name: d.name },
+      create: { tenant: TENANT, slug: d.slug, name: d.name },
+    });
+  }
+  // Wire parents (now that all exist).
+  for (const d of DEPARTMENTS) {
+    if (!d.parent) continue;
+    const [dept, parent] = await Promise.all([
+      prisma.department.findUniqueOrThrow({ where: { tenant_slug: { tenant: TENANT, slug: d.slug } } }),
+      prisma.department.findUniqueOrThrow({ where: { tenant_slug: { tenant: TENANT, slug: d.parent } } }),
+    ]);
+    await prisma.department.update({ where: { id: dept.id }, data: { parentId: parent.id } });
+  }
+  for (const c of COMPARTMENTS) {
+    await prisma.compartment.upsert({
+      where: { tenant_key: { tenant: TENANT, key: c.key } },
+      update: { name: c.name },
+      create: { tenant: TENANT, key: c.key, name: c.name },
+    });
+  }
+
+  // Migrate seeded users' free-text department → a membership (idempotent).
+  for (const seed of SEED_USERS) {
+    const user = await prisma.user.findUnique({ where: { email: seed.email.toLowerCase() } });
+    const dept = await prisma.department.findUnique({
+      where: { tenant_slug: { tenant: TENANT, slug: seed.department } },
+    });
+    if (!user || !dept) continue;
+    await prisma.userDepartment.upsert({
+      where: { userId_departmentId: { userId: user.id, departmentId: dept.id } },
+      update: {},
+      create: { userId: user.id, departmentId: dept.id, isManager: seed.department === 'it' },
+    });
+  }
+  console.log('seeded org (departments, compartments, memberships)');
+}
+
 async function main(): Promise<void> {
   const isProd = (process.env.NODE_ENV ?? 'development') === 'production';
 
@@ -162,6 +218,7 @@ async function main(): Promise<void> {
   }
 
   await seedRbac();
+  await seedOrg();
 }
 
 main()

@@ -4,6 +4,7 @@ import {
   type CryptoKey,
   type JWK,
   SignJWT,
+  createLocalJWKSet,
   exportJWK,
   importPKCS8,
   importSPKI,
@@ -25,8 +26,11 @@ const ALG = 'RS256';
 export interface AbacIdentity {
   sub: string;
   tenant: string;
-  department: string;
+  /** Department slugs, already expanded with descendants for managed departments. */
+  departments: string[];
   clearance: number;
+  /** Need-to-know compartment tags the user holds. */
+  compartments: string[];
 }
 
 /** Verified access-token payload: the ABAC identity plus standard JWT registered claims. */
@@ -54,7 +58,8 @@ export interface IssuedAccessToken {
 @Injectable()
 export class TokenService {
   private privateKeyPromise?: Promise<CryptoKey>;
-  private publicKeyPromise?: Promise<CryptoKey>;
+  private jwksPromise?: Promise<JWK[]>;
+  private keySetPromise?: Promise<ReturnType<typeof createLocalJWKSet>>;
 
   constructor(@Inject(JWT_CONFIG) private readonly config: JwtConfig) {}
 
@@ -66,8 +71,9 @@ export class TokenService {
 
     const token = await new SignJWT({
       tenant: identity.tenant,
-      department: identity.department,
+      departments: identity.departments,
       clearance: identity.clearance,
+      compartments: identity.compartments,
     })
       .setProtectedHeader({ alg: ALG, kid: this.config.kid })
       .setSubject(identity.sub)
@@ -87,7 +93,7 @@ export class TokenService {
    * GUARDRAILS §1.4) and never fall back to an unscoped identity.
    */
   async verifyAccessToken(token: string): Promise<VerifiedAccessToken> {
-    const { payload } = await jwtVerify(token, await this.getPublicKey(), {
+    const { payload } = await jwtVerify(token, await this.getKeySet(), {
       algorithms: [ALG],
       issuer: this.config.issuer,
       audience: this.config.audience,
@@ -97,7 +103,8 @@ export class TokenService {
     if (
       typeof payload.sub !== 'string' ||
       typeof payload.tenant !== 'string' ||
-      typeof payload.department !== 'string' ||
+      !Array.isArray(payload.departments) ||
+      !Array.isArray(payload.compartments) ||
       typeof clearance !== 'number'
     ) {
       // A signed-but-malformed token must not yield a usable identity.
@@ -107,8 +114,9 @@ export class TokenService {
     return {
       sub: payload.sub,
       tenant: payload.tenant,
-      department: payload.department,
+      departments: payload.departments as string[],
       clearance,
+      compartments: payload.compartments as string[],
       jti: payload.jti as string,
       iat: payload.iat as number,
       exp: payload.exp as number,
@@ -117,10 +125,9 @@ export class TokenService {
     };
   }
 
-  /** The public signing key as a JWK (with kid/alg/use) for GET /.well-known/jwks.json. */
-  async getPublicJwk(): Promise<JWK> {
-    const jwk = await exportJWK(await this.getPublicKey());
-    return { ...jwk, kid: this.config.kid, alg: ALG, use: 'sig' };
+  /** All public keys as JWKs (active + rotation overlap) for GET /.well-known/jwks.json. */
+  async getPublicJwks(): Promise<JWK[]> {
+    return this.getJwks();
   }
 
   private getPrivateKey(): Promise<CryptoKey> {
@@ -128,8 +135,29 @@ export class TokenService {
     return this.privateKeyPromise;
   }
 
-  private getPublicKey(): Promise<CryptoKey> {
-    this.publicKeyPromise ??= importSPKI(this.config.publicKey, ALG);
-    return this.publicKeyPromise;
+  /** Build the published JWK set: active signing key first, then verify-only keys. */
+  private getJwks(): Promise<JWK[]> {
+    this.jwksPromise ??= (async () => {
+      const toJwk = async (pem: string, kid: string): Promise<JWK> => ({
+        ...(await exportJWK(await importSPKI(pem, ALG))),
+        kid,
+        alg: ALG,
+        use: 'sig',
+      });
+      const active = await toJwk(this.config.publicKey, this.config.kid);
+      const extra = await Promise.all(
+        this.config.additionalVerifyKeys.map((k) => toJwk(k.publicKey, k.kid)),
+      );
+      return [active, ...extra];
+    })();
+    return this.jwksPromise;
+  }
+
+  /** A local JWK set resolver — jwtVerify selects the key by the token's `kid`. */
+  private getKeySet(): Promise<ReturnType<typeof createLocalJWKSet>> {
+    this.keySetPromise ??= this.getJwks().then((keys) =>
+      createLocalJWKSet({ keys }),
+    );
+    return this.keySetPromise;
   }
 }

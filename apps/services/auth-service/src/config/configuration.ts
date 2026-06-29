@@ -27,6 +27,12 @@ export interface JwtConfig {
   privateKey: string;
   /** RS256 public key (PEM) used to build JWKS. Derived from the private key if unset. */
   publicKey: string;
+  /**
+   * Extra public keys (verify-only) published in JWKS during a key rotation overlap:
+   * the new key signs while tokens minted under retired keys still verify. Drop a key
+   * here once all tokens it signed have expired.
+   */
+  additionalVerifyKeys: Array<{ kid: string; publicKey: string }>;
   /** Access-token lifetime in seconds (short-lived; never revoked, just expires). */
   accessTtlSeconds: number;
   /** Refresh-token lifetime in seconds (long-lived, rotating, revocable). */
@@ -57,6 +63,15 @@ export interface DbConfig {
   redisUrl: string;
 }
 
+export interface MailConfig {
+  smtpHost: string;
+  smtpPort: number;
+  /** From address on outbound mail. */
+  from: string;
+  /** Public base URL of the web app, used to build password-reset links. */
+  appBaseUrl: string;
+}
+
 export interface AppConfig {
   env: string;
   port: number;
@@ -64,6 +79,7 @@ export interface AppConfig {
   cookie: CookieConfig;
   apiDocs: ApiDocsConfig;
   db: DbConfig;
+  mail: MailConfig;
 }
 
 /** Collected during parsing so we report every problem at once, not one per boot. */
@@ -142,6 +158,39 @@ function normalizePem(raw: string | undefined): string {
   }
 }
 
+/** Parse optional verify-only keys: JSON (raw or base64) array of { kid, publicKey }. */
+function parseAdditionalVerifyKeys(
+  raw: string | undefined,
+  errors: ConfigErrors,
+): Array<{ kid: string; publicKey: string }> {
+  const trimmed = raw?.trim();
+  if (!trimmed) return [];
+  let json = trimmed;
+  if (!json.startsWith('[')) {
+    try {
+      json = Buffer.from(json, 'base64').toString('utf8');
+    } catch {
+      /* fall through to JSON.parse error below */
+    }
+  }
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (!Array.isArray(parsed)) {
+      errors.add('JWT_ADDITIONAL_VERIFY_KEYS must be a JSON array of {kid, publicKey}');
+      return [];
+    }
+    return parsed
+      .map((e) => ({
+        kid: String((e as { kid?: unknown }).kid ?? '').trim(),
+        publicKey: normalizePem(String((e as { publicKey?: unknown }).publicKey ?? '')),
+      }))
+      .filter((e) => e.kid && e.publicKey);
+  } catch {
+    errors.add('JWT_ADDITIONAL_VERIFY_KEYS is not valid JSON');
+    return [];
+  }
+}
+
 function loadKeys(env: NodeJS.ProcessEnv, errors: ConfigErrors): {
   privateKey: string;
   publicKey: string;
@@ -196,6 +245,10 @@ export function load(env: NodeJS.ProcessEnv = process.env): AppConfig {
       audience: requireString(env, 'JWT_AUDIENCE', errors),
       kid: requireString(env, 'JWT_KID', errors),
       ...loadKeys(env, errors),
+      additionalVerifyKeys: parseAdditionalVerifyKeys(
+        env.JWT_ADDITIONAL_VERIFY_KEYS,
+        errors,
+      ),
       accessTtlSeconds: optionalInt(env, 'ACCESS_TTL_SECONDS', 900, errors), // 15m
       refreshTtlSeconds: optionalInt(
         env,
@@ -217,6 +270,12 @@ export function load(env: NodeJS.ProcessEnv = process.env): AppConfig {
     db: {
       databaseUrl: requireString(env, 'DATABASE_URL', errors),
       redisUrl: requireString(env, 'AUTH_REDIS_URL', errors),
+    },
+    mail: {
+      smtpHost: env.SMTP_HOST?.trim() || 'auth-mailpit',
+      smtpPort: optionalInt(env, 'SMTP_PORT', 1025, errors),
+      from: env.MAIL_FROM?.trim() || 'no-reply@arac.local',
+      appBaseUrl: env.APP_BASE_URL?.trim() || 'http://localhost:3013',
     },
   };
 

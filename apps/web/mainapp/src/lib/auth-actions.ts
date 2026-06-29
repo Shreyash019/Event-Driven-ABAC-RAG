@@ -123,6 +123,37 @@ export async function changePassword(
   return { success: true };
 }
 
+export async function requestPasswordReset(
+  _prevState: { sent?: boolean } | undefined,
+  formData: FormData,
+): Promise<{ sent?: boolean }> {
+  const email = String(formData.get("email") ?? "");
+  await fetch(`${GATEWAY_URL}/api/auth/forgot`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+    cache: "no-store",
+  }).catch(() => undefined);
+  // Always report "sent" regardless of outcome — never reveal whether the email exists.
+  return { sent: true };
+}
+
+export async function resetPassword(
+  _prevState: { error?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const token = String(formData.get("token") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+  const res = await fetch(`${GATEWAY_URL}/api/auth/reset`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+    cache: "no-store",
+  });
+  if (!res.ok) return { error: "This reset link is invalid or expired." };
+  redirect("/login");
+}
+
 export async function logout(): Promise<void> {
   const jar = await cookies();
   // Revoke the session server-side (best-effort), then clear cookies regardless.

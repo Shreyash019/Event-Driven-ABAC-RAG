@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration, {
   type CookieConfig,
   type JwtConfig,
@@ -17,6 +19,10 @@ import { RedisSessionStore } from './sessions/redis-session.store';
 import { RbacService } from './rbac/rbac.service';
 import { AdminService } from './admin/admin.service';
 import { AdminController } from './admin/admin.controller';
+import { MailerService } from './mail/mailer.service';
+import { PasswordResetService } from './auth/password-reset.service';
+import { OrgService } from './org/org.service';
+import { OrgController } from './org/org.controller';
 
 /**
  * Composition root. ConfigModule loads + validates the environment via
@@ -28,9 +34,15 @@ import { AdminController } from './admin/admin.controller';
  * back to the in-memory PoC impls — touches only this file (loc-doc/AuthService.md §3.6).
  */
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] })],
-  controllers: [AuthController, JwksController, AdminController],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    // Per-IP rate limiting (req.ip resolves from X-Forwarded-For via `trust proxy`).
+    // Generous default; auth-sensitive routes tighten this with @Throttle.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+  ],
+  controllers: [AuthController, JwksController, AdminController, OrgController],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     {
       provide: JWT_CONFIG,
       useFactory: (config: ConfigService) => config.getOrThrow<JwtConfig>('jwt'),
@@ -56,6 +68,9 @@ import { AdminController } from './admin/admin.controller';
     AuthService,
     RbacService,
     AdminService,
+    MailerService,
+    PasswordResetService,
+    OrgService,
   ],
 })
 export class AppModule {}

@@ -17,6 +17,8 @@ export const PERMISSIONS = {
   USERS_GRANT: 'users:grant',
   USERS_ASSIGN_ROLE: 'users:assign-role',
   ROLES_MANAGE: 'roles:manage',
+  /** Manage org structure: departments, compartments, and user memberships. */
+  ORG_MANAGE: 'org:manage',
 } as const;
 
 export interface Scope {
@@ -80,6 +82,15 @@ export class RbacService {
   async can(userId: string, permission: string, target?: Scope): Promise<boolean> {
     const grants = await this.effectiveGrants(userId);
     return grants.some((g) => g.permission === permission && covers(g, target));
+  }
+
+  /** Distinct role names assigned to the user (for display in the session). */
+  async rolesFor(userId: string): Promise<string[]> {
+    const assignments = await this.prisma.userRole.findMany({
+      where: { userId },
+      select: { role: { select: { name: true } } },
+    });
+    return [...new Set(assignments.map((a) => a.role.name))];
   }
 
   /** The scopes in which the user holds `permission` — used to filter scoped queries. */

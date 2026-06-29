@@ -31,6 +31,12 @@ export function Header({ nav = DEFAULT_NAV, user, logoSrc = DEFAULT_LOGO }: Head
               {item.label}
             </a>
           ))}
+          {/* Admin link only for users who may manage others (from the verified session). */}
+          {user?.canManageUsers ? (
+            <a href="/admin/users" className="text-foreground/80 hover:text-foreground">
+              Admin
+            </a>
+          ) : null}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">

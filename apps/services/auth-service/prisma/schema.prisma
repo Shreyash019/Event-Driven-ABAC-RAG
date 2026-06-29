@@ -26,10 +26,67 @@ model User {
   clearance    Int
   status       UserStatus @default(ACTIVE)
   roles        UserRole[]
+  departments  UserDepartment[]
+  compartments UserCompartment[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([tenant])
+}
+
+// ---------------------------------------------------------------------------
+// Org model (ABAC data axis) — departments tree, memberships, compartments.
+// Governs DOCUMENT visibility (separate from RBAC). See loc-doc/OrgModel.md.
+// ---------------------------------------------------------------------------
+
+// A department in the company org tree. `slug` is the stable key used in JWT claims and
+// the document security matrix (e.g. "finance", "finance.ap"); ids stay internal.
+model Department {
+  id       String           @id @default(cuid())
+  tenant   String
+  slug     String
+  name     String
+  parentId String?
+  parent   Department?      @relation("DeptTree", fields: [parentId], references: [id])
+  children Department[]     @relation("DeptTree")
+  members  UserDepartment[]
+
+  @@unique([tenant, slug])
+  @@index([parentId])
+}
+
+// Membership of a user in a department. `isManager` ⇒ the user inherits visibility of the
+// department's descendants (expanded into claims at token-mint).
+model UserDepartment {
+  userId       String
+  departmentId String
+  isManager    Boolean    @default(false)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departmentId])
+  @@index([departmentId])
+}
+
+// A need-to-know compartment tag, orthogonal to clearance (e.g. "M&A", "PII").
+model Compartment {
+  id     String            @id @default(cuid())
+  tenant String
+  key    String
+  name   String
+  users  UserCompartment[]
+
+  @@unique([tenant, key])
+}
+
+model UserCompartment {
+  userId        String
+  compartmentId String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  compartment   Compartment @relation(fields: [compartmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, compartmentId])
+  @@index([compartmentId])
 }
 
 // ---------------------------------------------------------------------------

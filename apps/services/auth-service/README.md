@@ -1,98 +1,91 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# auth-service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Identity authority for the ARAC platform (Nest.js). Issues RS256 JWTs, exposes JWKS for
+the gateway to verify them, manages refresh-token sessions, and owns user accounts + RBAC.
+Design rationale lives in [loc-doc/AuthService.md](../../../loc-doc/AuthService.md); security
+invariants in [loc-doc/GUARDRAILS.md](../../../loc-doc/GUARDRAILS.md).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## What it does
 
-## Description
+- **Login / tokens** — verifies credentials (argon2id) and issues a short-lived RS256
+  **access JWT** carrying ABAC claims (`sub`, `tenant`, `department`, `clearance`) plus a
+  long-lived **refresh token**. Both are delivered as **httpOnly cookies only** — never in
+  a response body (XSS-resistant; the body returns just the `SessionUser`).
+- **JWKS** — `GET /.well-known/jwks.json` publishes the public key(s); the KrakenD gateway
+  fetches it to validate every token without calling back.
+- **Refresh rotation + reuse detection** — each refresh rotates within a session "family";
+  replaying a retired token revokes the whole family (theft tripwire).
+- **Accounts** — admin-seeded + public self-signup (forced zero scope until granted),
+  change-password.
+- **RBAC** — DB-managed, tenant/department-scoped roles & permissions (separate from the
+  ABAC data axis). Admin endpoints to list users and grant attributes.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Architecture
 
-## Project setup
+| Concern | Choice |
+|---|---|
+| User store (system of record) | **PostgreSQL** via Prisma |
+| Refresh sessions | **dedicated Redis** (TTL-native, replica-shared) — *not* the ingestion broker |
+| Password hashing | argon2id (`@node-rs/argon2`) |
+| Tokens | RS256 JWT (`jose`), JWKS-verifiable |
+| Delivery | httpOnly cookies (`arac_session`, `arac_refresh`) — BFF pattern |
 
+Authentication state never leaves the server as a readable token; the Next.js apps act as a
+BFF and the gateway is the trust boundary.
+
+## API (behind the gateway as `/api/auth/*`)
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/auth/login` | public | Verify credentials → cookies + `SessionUser` |
+| `POST` | `/auth/signup` | public | Self-register (forced minimal scope), auto-login |
+| `POST` | `/auth/refresh` | refresh cookie | Rotate refresh, mint new access (reuse ⇒ revoke family) |
+| `POST` | `/auth/change-password` | access token | Verify current → set new → revoke all sessions |
+| `POST` | `/auth/logout` · `/auth/logout-all` | cookie / access | Revoke current family / all sessions |
+| `GET`  | `/auth/me` | access token | Current `SessionUser` (SSR) |
+| `GET`  | `/auth/users` | `users:read` | List users in caller's scope |
+| `POST` | `/auth/users/:id/grant` | `users:grant` | Set a user's tenant/department/clearance |
+| `GET`  | `/.well-known/jwks.json` | internal | Public signing keys (gateway source) |
+| `GET`  | `/healthz` | internal | Liveness |
+
+Full route table + auth model: [loc-doc/AuthService.md](../../../loc-doc/AuthService.md) §5.
+
+## Configuration
+
+Copy `.env.example` → `.env` (git-ignored) and fill it in. Required: `JWT_ISSUER`,
+`JWT_AUDIENCE`, `JWT_KID`, `JWT_PRIVATE_KEY` (RS256 PEM/base64), `DATABASE_URL`,
+`AUTH_REDIS_URL`, and `SEED_*` passwords. The service **fails to boot** if a required
+secret is missing or, in production, if a seed user falls back to the dev password.
+
+Generate a keypair:
 ```bash
-$ pnpm install
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt_private.pem
+JWT_PRIVATE_KEY=$(base64 -i jwt_private.pem)
 ```
 
-## Compile and run the project
+## Run
 
 ```bash
-# development
-$ pnpm run start
+# Local dev (compiles + watches)
+pnpm --filter auth-service start:dev   # needs Postgres + Redis reachable per .env
 
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+# Full stack (recommended) — brings up Postgres, Redis, gateway, and this service
+docker compose -f infra/compose/docker-compose.yml up -d --build auth-service
 ```
 
-## Run tests
+The container runs `prisma migrate deploy` + an idempotent seed before starting. With
+`API_DOCS_ENABLED=true`, Swagger is at `/docs`.
+
+### Seeded users (dev)
+| Email | Role / scope | Password env |
+|---|---|---|
+| `admin@acme.test` | super-admin (global) | `SEED_ADMIN_PASSWORD` |
+| `finance@acme.test` | user · acme/finance · clearance 3 | `SEED_FINANCE_PASSWORD` |
+| `hr@acme.test` | user · acme/hr · clearance 2 | `SEED_HR_PASSWORD` |
+
+## Test
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm --filter auth-service test       # unit
+pnpm --filter auth-service test:e2e   # e2e
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

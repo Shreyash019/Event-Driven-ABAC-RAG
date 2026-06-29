@@ -3,6 +3,12 @@
 import { useActionState } from "react";
 import { grantUser } from "@/lib/admin-actions";
 
+export interface RoleAssignment {
+  role: string;
+  scopeTenant: string | null;
+  scopeDepartment: string | null;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -11,6 +17,9 @@ export interface AdminUser {
   department: string;
   clearance: number;
   status: string;
+  roles: RoleAssignment[];
+  departments: Array<{ slug: string; isManager: boolean }>;
+  compartments: string[];
 }
 
 /** Per-row grant form. Posts to the grantUser Server Action; RBAC scope is enforced server-side. */

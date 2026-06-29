@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 import { GrantForm, type AdminUser } from "./GrantForm";
+import { RoleForm } from "./RoleForm";
+import { MembershipForm } from "./MembershipForm";
+import { CreateDepartmentForm } from "./CreateDepartmentForm";
 
 /**
  * Admin user management (SSR). Fetches the scoped user list from the gateway with the
@@ -22,8 +25,47 @@ async function fetchUsers(): Promise<{ users: AdminUser[]; forbidden: boolean }>
   return { users: (await res.json()) as AdminUser[], forbidden: false };
 }
 
+async function fetchRoles(): Promise<string[]> {
+  const access = (await cookies()).get("arac_session")?.value;
+  if (!access) return [];
+  const res = await fetch(`${GATEWAY_URL}/api/auth/users/roles`, {
+    headers: { cookie: `arac_session=${access}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  return ((await res.json()) as Array<{ name: string }>).map((r) => r.name);
+}
+
+async function fetchDepartments(): Promise<
+  Array<{ slug: string; name: string; parentSlug: string | null }>
+> {
+  const access = (await cookies()).get("arac_session")?.value;
+  if (!access) return [];
+  const res = await fetch(`${GATEWAY_URL}/api/auth/departments`, {
+    headers: { cookie: `arac_session=${access}` },
+    cache: "no-store",
+  });
+  return res.ok ? res.json() : [];
+}
+
+async function fetchCompartments(): Promise<string[]> {
+  const access = (await cookies()).get("arac_session")?.value;
+  if (!access) return [];
+  const res = await fetch(`${GATEWAY_URL}/api/auth/compartments`, {
+    headers: { cookie: `arac_session=${access}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  return ((await res.json()) as Array<{ key: string }>).map((c) => c.key);
+}
+
 export default async function AdminUsersPage() {
-  const { users, forbidden } = await fetchUsers();
+  const [{ users, forbidden }, roleNames, departments, compartments] = await Promise.all([
+    fetchUsers(),
+    fetchRoles(),
+    fetchDepartments(),
+    fetchCompartments(),
+  ]);
 
   if (forbidden) {
     return (
@@ -40,6 +82,10 @@ export default async function AdminUsersPage() {
       <p style={{ margin: 0, opacity: 0.7, fontSize: "0.9rem" }}>
         Showing users within your scope. Set department / clearance and Save.
       </p>
+
+      <section style={{ border: "1px solid rgba(127,127,127,0.25)", borderRadius: "10px", padding: "1rem" }}>
+        <CreateDepartmentForm departments={departments} />
+      </section>
       <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <thead>
           <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(127,127,127,0.3)" }}>
@@ -48,17 +94,29 @@ export default async function AdminUsersPage() {
             <th style={th}>Tenant</th>
             <th style={th}>Status</th>
             <th style={th}>Grant (department · clearance)</th>
+            <th style={th}>Roles</th>
+            <th style={th}>Org (departments · compartments)</th>
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id} style={{ borderBottom: "1px solid rgba(127,127,127,0.15)" }}>
+            <tr key={u.id} style={{ borderBottom: "1px solid rgba(127,127,127,0.15)", verticalAlign: "top" }}>
               <td style={td}>{u.name}</td>
               <td style={td}>{u.email}</td>
               <td style={td}>{u.tenant}</td>
               <td style={td}>{u.status}</td>
               <td style={td}>
                 <GrantForm user={u} />
+              </td>
+              <td style={td}>
+                <RoleForm user={u} availableRoles={roleNames} />
+              </td>
+              <td style={td}>
+                <MembershipForm
+                  user={u}
+                  allDepartments={departments}
+                  allCompartments={compartments}
+                />
               </td>
             </tr>
           ))}

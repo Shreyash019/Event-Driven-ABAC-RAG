@@ -19,6 +19,6 @@ export class JwksController {
 
   @Get('jwks.json')
   async jwks(): Promise<{ keys: JWK[] }> {
-    return { keys: [await this.tokenService.getPublicJwk()] };
+    return { keys: await this.tokenService.getPublicJwks() };
   }
 }

@@ -54,6 +54,28 @@
       ]
     },
     {
+      "endpoint": "/api/auth/forgot",
+      "method": "POST",
+      "input_headers": ["Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/auth/forgot",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/reset",
+      "method": "POST",
+      "input_headers": ["Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/auth/reset",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
       "endpoint": "/api/auth/users",
       "method": "GET",
       "input_headers": ["Authorization", "Cookie"],
@@ -73,6 +95,87 @@
           "url_pattern": "/auth/users/{id}/grant",
           "host": ["http://auth-service:3000"]
         }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/users/roles",
+      "method": "GET",
+      "input_headers": ["Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/users/roles",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/users/{id}/roles",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/users/{id}/roles",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/users/{id}/roles",
+      "method": "DELETE",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        {
+          "url_pattern": "/auth/users/{id}/roles",
+          "host": ["http://auth-service:3000"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/departments",
+      "method": "GET",
+      "input_headers": ["Authorization", "Cookie"],
+      "backend": [
+        { "url_pattern": "/auth/departments", "host": ["http://auth-service:3000"] }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/departments",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        { "url_pattern": "/auth/departments", "host": ["http://auth-service:3000"] }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/compartments",
+      "method": "GET",
+      "input_headers": ["Authorization", "Cookie"],
+      "backend": [
+        { "url_pattern": "/auth/compartments", "host": ["http://auth-service:3000"] }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/compartments",
+      "method": "POST",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        { "url_pattern": "/auth/compartments", "host": ["http://auth-service:3000"] }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/users/{id}/departments",
+      "method": "PUT",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        { "url_pattern": "/auth/users/{id}/departments", "host": ["http://auth-service:3000"] }
+      ]
+    },
+    {
+      "endpoint": "/api/auth/users/{id}/compartments",
+      "method": "PUT",
+      "input_headers": ["Content-Type", "Authorization", "Cookie"],
+      "backend": [
+        { "url_pattern": "/auth/users/{id}/compartments", "host": ["http://auth-service:3000"] }
       ]
     },
     {
@@ -131,8 +234,9 @@
           "propagate_claims": [
             ["sub", "X-Identity-Subject"],
             ["tenant", "X-Identity-Tenant"],
-            ["department", "X-Identity-Department"],
-            ["clearance", "X-Identity-Clearance"]
+            ["departments", "X-Identity-Departments"],
+            ["clearance", "X-Identity-Clearance"],
+            ["compartments", "X-Identity-Compartments"]
           ]
         }
       },
