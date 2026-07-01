@@ -6,7 +6,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { type DeptRank, type Prisma } from '@prisma/client';
 import { PrismaService } from '../db/prisma.service';
 import { PERMISSIONS, RbacService, type Scope } from '../rbac/rbac.service';
 import { SESSION_STORE, type SessionStore } from '../sessions/session.store';
@@ -26,6 +26,7 @@ const USER_SELECT = {
   tenant: true,
   department: true,
   clearance: true,
+  level: true,
   status: true,
   createdAt: true,
   roles: {
@@ -36,7 +37,7 @@ const USER_SELECT = {
     },
   },
   departments: {
-    select: { isManager: true, department: { select: { slug: true } } },
+    select: { rank: true, department: { select: { slug: true } } },
   },
   compartments: {
     select: { compartment: { select: { key: true } } },
@@ -58,9 +59,10 @@ export interface AdminUserView {
   tenant: string;
   department: string;
   clearance: number;
+  level: number;
   status: string;
   roles: AdminRoleAssignment[];
-  departments: Array<{ slug: string; isManager: boolean }>;
+  departments: Array<{ slug: string; rank: DeptRank }>;
   compartments: string[];
 }
 
@@ -68,6 +70,7 @@ export interface GrantInput {
   tenant?: string;
   department?: string;
   clearance?: number;
+  level?: number;
 }
 
 export interface RoleAssignmentInput {
@@ -128,6 +131,7 @@ export class AdminService {
       tenant: input.tenant ?? target.tenant,
       department: input.department ?? target.department,
       clearance: input.clearance ?? target.clearance,
+      level: input.level ?? target.level,
     };
     await this.requireGrantScope(callerId, target.tenant, target.department);
     await this.requireGrantScope(callerId, next.tenant, next.department);
@@ -136,7 +140,8 @@ export class AdminService {
     await this.sessions.revokeUser(targetId); // scope change takes effect immediately
     this.logger.log(
       `audit user.granted target=${targetId} by=${callerId} ` +
-        `tenant=${next.tenant} department=${next.department} clearance=${next.clearance}`,
+        `tenant=${next.tenant} department=${next.department} ` +
+        `clearance=${next.clearance} level=${next.level}`,
     );
     return this.view(targetId);
   }
@@ -245,6 +250,7 @@ function toView(row: UserRow): AdminUserView {
     tenant: row.tenant,
     department: row.department,
     clearance: row.clearance,
+    level: row.level,
     status: row.status,
     roles: row.roles.map((r) => ({
       role: r.role.name,
@@ -253,7 +259,7 @@ function toView(row: UserRow): AdminUserView {
     })),
     departments: row.departments.map((d) => ({
       slug: d.department.slug,
-      isManager: d.isManager,
+      rank: d.rank,
     })),
     compartments: row.compartments.map((c) => c.compartment.key),
   };

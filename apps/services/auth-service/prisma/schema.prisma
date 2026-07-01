@@ -15,6 +15,18 @@ enum UserStatus {
   DISABLED
 }
 
+// Company-wide role ladder inside a department (the ABAC in-department rank). Ordinal by
+// declaration order: MANAGER and above inherit visibility of the department's descendants
+// (expanded into claims at token-mint). Replaces the old `isManager` boolean.
+enum DeptRank {
+  IC
+  LEAD
+  MANAGER
+  SENIOR_MANAGER
+  DIRECTOR
+  VP
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique // stored lowercased; the login lookup normalizes too
@@ -24,6 +36,9 @@ model User {
   tenant       String
   department   String
   clearance    Int
+  // Company-wide seniority level (ordinal): L3 = intern (floor), higher = more senior.
+  // Org axis, signed into the token — gates document `minLevel` and RBAC `Permission.minLevel`.
+  level        Int        @default(3)
   status       UserStatus @default(ACTIVE)
   roles        UserRole[]
   departments  UserDepartment[]
@@ -55,12 +70,13 @@ model Department {
   @@index([parentId])
 }
 
-// Membership of a user in a department. `isManager` ⇒ the user inherits visibility of the
-// department's descendants (expanded into claims at token-mint).
+// Membership of a user in a department. `rank` is the in-department role ladder; a rank of
+// MANAGER or above ⇒ the user inherits visibility of the department's descendants (expanded
+// into claims at token-mint).
 model UserDepartment {
   userId       String
   departmentId String
-  isManager    Boolean    @default(false)
+  rank         DeptRank   @default(IC)
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
@@ -99,6 +115,10 @@ model Permission {
   id          String           @id @default(cuid())
   key         String           @unique // e.g. "users:read"
   description String
+  // Org-level floor (Stage 1 of the combined gate): a user must have `level` >= this to
+  // exercise the permission, checked BEFORE the role/scope grant. Default 3 (L3) = open to
+  // everyone; raise it to reserve a capability for more senior levels.
+  minLevel    Int              @default(3)
   roles       RolePermission[]
 }
 

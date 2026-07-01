@@ -80,7 +80,7 @@ export default async function AdminUsersPage() {
     <main style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
       <h1 style={{ fontSize: "1.5rem", margin: 0 }}>Users ({users.length})</h1>
       <p style={{ margin: 0, opacity: 0.7, fontSize: "0.9rem" }}>
-        Showing users within your scope. Set department / clearance and Save.
+        Showing users within your scope. Set department / clearance / level and Save.
       </p>
 
       <section style={{ border: "1px solid rgba(127,127,127,0.25)", borderRadius: "10px", padding: "1rem" }}>
@@ -93,9 +93,9 @@ export default async function AdminUsersPage() {
             <th style={th}>Email</th>
             <th style={th}>Tenant</th>
             <th style={th}>Status</th>
-            <th style={th}>Grant (department · clearance)</th>
+            <th style={th}>Grant (department · clearance · level)</th>
             <th style={th}>Roles</th>
-            <th style={th}>Org (departments · compartments)</th>
+            <th style={th}>Org (departments · rank · compartments)</th>
           </tr>
         </thead>
         <tbody>

@@ -9,6 +9,20 @@ export interface RoleAssignment {
   scopeDepartment: string | null;
 }
 
+/**
+ * In-department role ladder (least → most senior), mirroring the `DeptRank` enum in the
+ * auth-service Prisma schema. MANAGER and above inherit visibility of sub-departments.
+ */
+export const DEPT_RANKS = [
+  "IC",
+  "LEAD",
+  "MANAGER",
+  "SENIOR_MANAGER",
+  "DIRECTOR",
+  "VP",
+] as const;
+export type DeptRank = (typeof DEPT_RANKS)[number];
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -16,9 +30,11 @@ export interface AdminUser {
   tenant: string;
   department: string;
   clearance: number;
+  /** Company-wide seniority level (L3 = intern floor). */
+  level: number;
   status: string;
   roles: RoleAssignment[];
-  departments: Array<{ slug: string; isManager: boolean }>;
+  departments: Array<{ slug: string; rank: DeptRank }>;
   compartments: string[];
 }
 
@@ -42,6 +58,17 @@ export function GrantForm({ user }: { user: AdminUser }) {
         max={10}
         defaultValue={user.clearance}
         aria-label="clearance"
+        title="document clearance (no read up)"
+        style={{ ...styles.input, width: "4rem" }}
+      />
+      <input
+        name="level"
+        type="number"
+        min={3}
+        max={12}
+        defaultValue={user.level}
+        aria-label="level"
+        title="company level (L3 = intern floor)"
         style={{ ...styles.input, width: "4rem" }}
       />
       <button type="submit" disabled={pending} style={styles.button}>

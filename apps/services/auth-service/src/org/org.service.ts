@@ -7,8 +7,10 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { DeptRank } from '@prisma/client';
 import { PrismaService } from '../db/prisma.service';
 import { PERMISSIONS, RbacService } from '../rbac/rbac.service';
+import { inheritsDescendants } from './rank';
 import { SESSION_STORE, type SessionStore } from '../sessions/session.store';
 import { TokenService } from '../jwt/token.service';
 
@@ -31,7 +33,7 @@ export interface DepartmentView {
 
 export interface MembershipInput {
   slug: string;
-  isManager?: boolean;
+  rank?: DeptRank;
 }
 
 @Injectable()
@@ -145,7 +147,7 @@ export class OrgService {
         data: memberships.map((m) => ({
           userId,
           departmentId: bySlug.get(m.slug)!,
-          isManager: m.isManager ?? false,
+          rank: m.rank ?? DeptRank.IC,
         })),
       }),
     ]);
@@ -195,7 +197,7 @@ export class OrgService {
     const [memberships, comps, allDepts] = await Promise.all([
       this.prisma.userDepartment.findMany({
         where: { userId },
-        select: { isManager: true, department: { select: { id: true, slug: true } } },
+        select: { rank: true, department: { select: { id: true, slug: true } } },
       }),
       this.prisma.userCompartment.findMany({
         where: { userId },
@@ -228,7 +230,7 @@ export class OrgService {
     const departments = new Set<string>();
     for (const m of memberships) {
       departments.add(m.department.slug);
-      if (m.isManager) addDescendants(m.department.id, departments);
+      if (inheritsDescendants(m.rank)) addDescendants(m.department.id, departments);
     }
     return {
       departments: [...departments],

@@ -194,6 +194,7 @@ export class AuthService {
       tenant: user.tenant,
       departments,
       clearance: user.clearance,
+      level: user.level,
       compartments,
     };
   }

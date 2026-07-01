@@ -35,6 +35,7 @@ type UserRow = {
   tenant: string;
   department: string;
   clearance: number;
+  level: number;
 };
 
 @Injectable()
@@ -103,6 +104,7 @@ export class PrismaIdentityProvider implements IdentityProvider, OnModuleInit {
       tenant: row.tenant,
       department: row.department,
       clearance: row.clearance,
+      level: row.level,
     };
   }
 }

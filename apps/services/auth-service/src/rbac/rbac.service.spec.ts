@@ -7,25 +7,26 @@ import type { PrismaService } from '../db/prisma.service';
  */
 
 // Role graph mirroring the seed: user ◂ dept-admin ◂ user-admin ◂ super-admin.
+// `minLevel` is the org-level floor per permission (Stage 1 of the combined gate).
 const ROLES = [
   { id: 'r_user', parentId: null, permissions: [] },
   {
     id: 'r_dept',
     parentId: 'r_user',
     permissions: [
-      { permission: { key: PERMISSIONS.USERS_READ } },
-      { permission: { key: PERMISSIONS.USERS_GRANT } },
+      { permission: { key: PERMISSIONS.USERS_READ, minLevel: 3 } },
+      { permission: { key: PERMISSIONS.USERS_GRANT, minLevel: 4 } },
     ],
   },
   {
     id: 'r_useradmin',
     parentId: 'r_dept',
-    permissions: [{ permission: { key: PERMISSIONS.USERS_ASSIGN_ROLE } }],
+    permissions: [{ permission: { key: PERMISSIONS.USERS_ASSIGN_ROLE, minLevel: 5 } }],
   },
   {
     id: 'r_super',
     parentId: 'r_useradmin',
-    permissions: [{ permission: { key: PERMISSIONS.ROLES_MANAGE } }],
+    permissions: [{ permission: { key: PERMISSIONS.ROLES_MANAGE, minLevel: 6 } }],
   },
 ];
 
@@ -34,6 +35,9 @@ function makeRbac(
     string,
     Array<{ roleId: string; scopeTenant: string | null; scopeDepartment: string | null }>
   >,
+  // Company level of the querying user — defaults high enough to clear every floor so
+  // scope/hierarchy tests are not gated by Stage 1. Set low to test the org-level floor.
+  userLevel = 7,
 ): RbacService {
   const prisma = {
     userRole: {
@@ -42,6 +46,9 @@ function makeRbac(
     },
     role: {
       findMany: () => Promise.resolve(ROLES),
+    },
+    user: {
+      findUnique: () => Promise.resolve({ level: userLevel }),
     },
   } as unknown as PrismaService;
   return new RbacService(prisma);
@@ -89,6 +96,21 @@ describe('RbacService', () => {
     const rbac = makeRbac({});
     await expect(rbac.can('nobody', PERMISSIONS.USERS_READ)).resolves.toBe(false);
     await expect(rbac.scopesFor('nobody', PERMISSIONS.USERS_READ)).resolves.toEqual([]);
+  });
+
+  it('denies when the org-level floor is not met, even with the scoped grant', async () => {
+    // dept-admin holds users:grant (floor L4) but this user is only L3 → Stage 1 denies.
+    const rbac = makeRbac(
+      { u_junior: [{ roleId: 'r_dept', scopeTenant: 'acme', scopeDepartment: 'finance' }] },
+      3,
+    );
+    await expect(
+      rbac.can('u_junior', PERMISSIONS.USERS_GRANT, { tenant: 'acme', department: 'finance' }),
+    ).resolves.toBe(false);
+    // users:read has a lower floor (L3), so the same user still holds that one.
+    await expect(
+      rbac.can('u_junior', PERMISSIONS.USERS_READ, { tenant: 'acme', department: 'finance' }),
+    ).resolves.toBe(true);
   });
 
   it('reports the scopes a permission is held in', async () => {

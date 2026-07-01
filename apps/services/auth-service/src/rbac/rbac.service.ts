@@ -28,6 +28,8 @@ export interface Scope {
 
 export interface Grant extends Scope {
   permission: string;
+  /** Org-level floor for this permission (Permission.minLevel); the user's `level` must meet it. */
+  minLevel: number;
 }
 
 @Injectable()
@@ -46,6 +48,13 @@ export class RbacService {
       include: { permissions: { include: { permission: true } } },
     });
     const byId = new Map(roles.map((r) => [r.id, r]));
+
+    // A permission's org-level floor is a property of the permission itself (same for every
+    // role that carries it), so resolve it once from the loaded rows.
+    const minLevelByKey = new Map<string, number>();
+    for (const r of roles) {
+      for (const rp of r.permissions) minLevelByKey.set(rp.permission.key, rp.permission.minLevel);
+    }
 
     // permission keys for a role including all ancestors (memoized)
     const cache = new Map<string, Set<string>>();
@@ -69,6 +78,7 @@ export class RbacService {
           permission,
           tenant: a.scopeTenant,
           department: a.scopeDepartment,
+          minLevel: minLevelByKey.get(permission) ?? 3,
         });
       }
     }
@@ -76,12 +86,23 @@ export class RbacService {
   }
 
   /**
-   * Does the user hold `permission`? With a `target`, the grant's scope must cover it
-   * (null scope = covers everything). Without a target, any scope counts ("has it at all").
+   * Does the user hold `permission`? Combined two-stage gate: Stage 1 checks the org-level
+   * floor (the user's company `level` must be ≥ the permission's `minLevel`), Stage 2 checks
+   * the scoped grant. With a `target`, the grant's scope must cover it (null scope = covers
+   * everything). Without a target, any scope counts ("has it at all"). Fail-closed on both.
    */
   async can(userId: string, permission: string, target?: Scope): Promise<boolean> {
     const grants = await this.effectiveGrants(userId);
-    return grants.some((g) => g.permission === permission && covers(g, target));
+    const matching = grants.filter((g) => g.permission === permission && covers(g, target));
+    if (matching.length === 0) return false; // Stage 2: no scoped grant → deny
+
+    // Stage 1 (checked first conceptually): the user must clear the org-level floor.
+    const required = Math.max(...matching.map((g) => g.minLevel));
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { level: true },
+    });
+    return user !== null && user.level >= required;
   }
 
   /** Distinct role names assigned to the user (for display in the session). */

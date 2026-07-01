@@ -22,15 +22,20 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.HandleFunc("/rag/query", func(w http.ResponseWriter, r *http.Request) {
-		// Trusted identity is injected by the gateway as X-Identity-* headers.
+		// Trusted identity is injected by the gateway as X-Identity-* headers. These are
+		// the ONLY source of ABAC scope; the Qdrant pre-filter is built from them (see
+		// loc-doc/OrgModel.md §3): tenant match AND department ∈ departments AND
+		// classification <= clearance AND minLevel <= level AND compartments ⊆ compartments.
 		resp := map[string]any{
 			"answer":    "rag-gateway-service scaffold: wire ABAC matrix + retrieval + LLM here",
 			"citations": []any{},
 			"identity": map[string]string{
-				"subject":    r.Header.Get("X-Identity-Subject"),
-				"tenant":     r.Header.Get("X-Identity-Tenant"),
-				"department": r.Header.Get("X-Identity-Department"),
-				"clearance":  r.Header.Get("X-Identity-Clearance"),
+				"subject":      r.Header.Get("X-Identity-Subject"),
+				"tenant":       r.Header.Get("X-Identity-Tenant"),
+				"departments":  r.Header.Get("X-Identity-Departments"),
+				"clearance":    r.Header.Get("X-Identity-Clearance"),
+				"level":        r.Header.Get("X-Identity-Level"),
+				"compartments": r.Header.Get("X-Identity-Compartments"),
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")

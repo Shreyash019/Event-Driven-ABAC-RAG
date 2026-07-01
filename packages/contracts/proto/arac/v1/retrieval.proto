@@ -31,6 +31,15 @@ message SecurityContext {
   // Maximum data classification the subject may see (e.g. "internal",
   // "confidential"). Documents above this level are excluded at the DB level.
   string max_classification = 4;
+
+  // Company-wide seniority level of the subject (CompanyLevel ordinal; L3 = 3 is the
+  // intern floor). A document is eligible only if its `min_level` <= this ("no read up"
+  // on seniority), applied at the DB level alongside classification.
+  uint32 level = 5;
+
+  // Need-to-know compartment tags the subject holds. A document is eligible only if all
+  // of its required compartments are a subset of this set.
+  repeated string compartments = 6;
 }
 
 message SearchRequest {

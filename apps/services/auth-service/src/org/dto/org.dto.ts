@@ -1,7 +1,8 @@
+import { DeptRank } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
+  IsEnum,
   IsOptional,
   IsString,
   Matches,
@@ -43,8 +44,8 @@ export class MembershipDto {
   slug!: string;
 
   @IsOptional()
-  @IsBoolean()
-  isManager?: boolean;
+  @IsEnum(DeptRank)
+  rank?: DeptRank;
 }
 
 export class SetMembershipsDto {

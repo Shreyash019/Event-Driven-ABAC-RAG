@@ -27,6 +27,22 @@ export const Classification = {
 export type ClassificationLevel = (typeof Classification)[keyof typeof Classification];
 
 /**
+ * Company-wide seniority ladder (ordinal). L3 = intern is the floor; higher = more senior.
+ * Distinct from `Classification` (which grades a document's sensitivity): this grades a
+ * *person*. A user may read a document when the document's `minLevel` ≤ the user's `level`
+ * ("no read up" on seniority), and may exercise a permission when `level` ≥ its `minLevel`.
+ */
+export const CompanyLevel = {
+  L3: 3, // Intern (floor)
+  L4: 4,
+  L5: 5,
+  L6: 6,
+  L7: 7,
+  L8: 8,
+} as const;
+export type CompanyLevelValue = (typeof CompanyLevel)[keyof typeof CompanyLevel];
+
+/**
  * The security matrix stamped on every ingested document/chunk (GUARDRAILS §1.1) and the
  * basis of the Qdrant ABAC pre-filter. Cross-service contract — a vector without it is a
  * bug; never default to public. (Proto/Go/Python mirror is added with the RAG services.)
@@ -37,6 +53,8 @@ export interface SecurityMatrix {
   departments: string[];
   /** ClassificationLevel of the document. */
   classification: number;
+  /** Minimum company seniority level required to view (CompanyLevel; default L3 = open). */
+  minLevel: number;
   /** Need-to-know compartment tags required to view (empty = none). */
   compartments: string[];
 }
@@ -51,6 +69,8 @@ export interface IdentityClaims {
   tenant: string;
   departments: string[];
   clearance: number;
+  /** Company-wide seniority level (CompanyLevel); gates document `minLevel` and permissions. */
+  level: number;
   compartments: string[];
 }
 

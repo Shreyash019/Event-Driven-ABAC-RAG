@@ -225,7 +225,16 @@
     {
       "endpoint": "/api/rag/query",
       "method": "POST",
-      "input_headers": ["Content-Type", "Authorization"],
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "X-Identity-Subject",
+        "X-Identity-Tenant",
+        "X-Identity-Departments",
+        "X-Identity-Clearance",
+        "X-Identity-Level",
+        "X-Identity-Compartments"
+      ],
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
@@ -236,6 +245,7 @@
             ["tenant", "X-Identity-Tenant"],
             ["departments", "X-Identity-Departments"],
             ["clearance", "X-Identity-Clearance"],
+            ["level", "X-Identity-Level"],
             ["compartments", "X-Identity-Compartments"]
           ]
         }

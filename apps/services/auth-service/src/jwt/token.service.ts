@@ -29,6 +29,8 @@ export interface AbacIdentity {
   /** Department slugs, already expanded with descendants for managed departments. */
   departments: string[];
   clearance: number;
+  /** Company-wide seniority level (CompanyLevel); gates document `minLevel` downstream. */
+  level: number;
   /** Need-to-know compartment tags the user holds. */
   compartments: string[];
 }
@@ -73,6 +75,7 @@ export class TokenService {
       tenant: identity.tenant,
       departments: identity.departments,
       clearance: identity.clearance,
+      level: identity.level,
       compartments: identity.compartments,
     })
       .setProtectedHeader({ alg: ALG, kid: this.config.kid })
@@ -100,12 +103,14 @@ export class TokenService {
     });
 
     const clearance = payload.clearance;
+    const level = payload.level;
     if (
       typeof payload.sub !== 'string' ||
       typeof payload.tenant !== 'string' ||
       !Array.isArray(payload.departments) ||
       !Array.isArray(payload.compartments) ||
-      typeof clearance !== 'number'
+      typeof clearance !== 'number' ||
+      typeof level !== 'number'
     ) {
       // A signed-but-malformed token must not yield a usable identity.
       throw new Error('access token is missing required ABAC claims');
@@ -116,6 +121,7 @@ export class TokenService {
       tenant: payload.tenant,
       departments: payload.departments as string[],
       clearance,
+      level,
       compartments: payload.compartments as string[],
       jti: payload.jti as string,
       iat: payload.iat as number,

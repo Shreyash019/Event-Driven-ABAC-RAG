@@ -25,6 +25,7 @@ const SEED_USERS = [
     tenant: 'acme',
     department: 'finance',
     clearance: 3,
+    level: 4, // L4
     passwordEnv: 'SEED_FINANCE_PASSWORD',
   },
   {
@@ -33,6 +34,7 @@ const SEED_USERS = [
     tenant: 'acme',
     department: 'hr',
     clearance: 2,
+    level: 4, // L4
     passwordEnv: 'SEED_HR_PASSWORD',
   },
   {
@@ -41,17 +43,20 @@ const SEED_USERS = [
     tenant: 'acme',
     department: 'it',
     clearance: 5,
+    level: 7, // L7 — clears every seeded permission floor below
     passwordEnv: 'SEED_ADMIN_PASSWORD',
   },
 ] as const;
 
 // RBAC seed: fine-grained permissions, a role hierarchy, and their mappings.
-const PERMISSIONS: Array<[key: string, description: string]> = [
-  ['users:read', 'View users within scope'],
-  ['users:grant', "Set a user's tenant/department/clearance"],
-  ['users:assign-role', 'Assign or remove roles for users'],
-  ['roles:manage', 'Create and edit roles and permissions'],
-  ['org:manage', 'Manage departments, compartments, and memberships'],
+// `minLevel` is the org-level floor (Stage 1 of the combined gate): a user must be at least
+// this company level to exercise the permission, checked before the scoped role grant.
+const PERMISSIONS: Array<[key: string, description: string, minLevel: number]> = [
+  ['users:read', 'View users within scope', 3],
+  ['users:grant', "Set a user's tenant/department/clearance/level", 4],
+  ['users:assign-role', 'Assign or remove roles for users', 5],
+  ['roles:manage', 'Create and edit roles and permissions', 6],
+  ['org:manage', 'Manage departments, compartments, and memberships', 6],
 ];
 
 // `parent` defines the hierarchy: a role inherits all ancestor permissions.
@@ -84,8 +89,12 @@ const ROLES: Array<{
 ];
 
 async function seedRbac(): Promise<void> {
-  for (const [key, description] of PERMISSIONS) {
-    await prisma.permission.upsert({ where: { key }, update: { description }, create: { key, description } });
+  for (const [key, description, minLevel] of PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { key },
+      update: { description, minLevel },
+      create: { key, description, minLevel },
+    });
   }
   // Create roles first (so parents exist), then wire parent + permissions.
   for (const r of ROLES) {
@@ -174,10 +183,11 @@ async function seedOrg(): Promise<void> {
       where: { tenant_slug: { tenant: TENANT, slug: seed.department } },
     });
     if (!user || !dept) continue;
+    const rank = seed.department === 'it' ? 'MANAGER' : 'IC';
     await prisma.userDepartment.upsert({
       where: { userId_departmentId: { userId: user.id, departmentId: dept.id } },
-      update: {},
-      create: { userId: user.id, departmentId: dept.id, isManager: seed.department === 'it' },
+      update: { rank },
+      create: { userId: user.id, departmentId: dept.id, rank },
     });
   }
   console.log('seeded org (departments, compartments, memberships)');
@@ -202,6 +212,7 @@ async function main(): Promise<void> {
         tenant: seed.tenant,
         department: seed.department,
         clearance: seed.clearance,
+        level: seed.level,
         status: 'ACTIVE',
         passwordHash,
       },
@@ -211,6 +222,7 @@ async function main(): Promise<void> {
         tenant: seed.tenant,
         department: seed.department,
         clearance: seed.clearance,
+        level: seed.level,
         passwordHash,
       },
     });

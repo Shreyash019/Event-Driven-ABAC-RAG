@@ -30,6 +30,7 @@ const IDENTITY = {
   tenant: 'acme',
   departments: ['finance', 'finance.ap'],
   clearance: 3,
+  level: 5,
   compartments: ['M&A'],
 };
 

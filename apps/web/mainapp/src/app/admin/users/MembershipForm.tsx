@@ -2,12 +2,13 @@
 
 import { useActionState } from "react";
 import { setUserOrg } from "@/lib/admin-actions";
-import type { AdminUser } from "./GrantForm";
+import { DEPT_RANKS, type AdminUser } from "./GrantForm";
 
 /**
- * Edit a user's ABAC org placement: department memberships (with a per-dept "manager"
- * flag → inherits descendants) and need-to-know compartments. One Save posts both. The
- * server enforces `org:manage`; changes revoke the user's sessions so claims re-derive.
+ * Edit a user's ABAC org placement: department memberships (each with an in-department
+ * rank — MANAGER and above inherit sub-departments) and need-to-know compartments. One
+ * Save posts both. The server enforces `org:manage`; changes revoke the user's sessions
+ * so claims re-derive.
  */
 export function MembershipForm({
   user,
@@ -20,7 +21,7 @@ export function MembershipForm({
 }) {
   const [state, action, pending] = useActionState(setUserOrg, undefined);
   const member = new Set(user.departments.map((d) => d.slug));
-  const manager = new Set(user.departments.filter((d) => d.isManager).map((d) => d.slug));
+  const rankOf = new Map(user.departments.map((d) => [d.slug, d.rank]));
   const held = new Set(user.compartments);
 
   return (
@@ -34,10 +35,19 @@ export function MembershipForm({
               <input type="checkbox" name="slug" value={d.slug} defaultChecked={member.has(d.slug)} />
               {d.slug}
             </label>
-            <label style={styles.mgr} title="manager → sees sub-departments">
-              <input type="checkbox" name="manager" value={d.slug} defaultChecked={manager.has(d.slug)} />
-              mgr
-            </label>
+            <select
+              name={`rank_${d.slug}`}
+              defaultValue={rankOf.get(d.slug) ?? "IC"}
+              aria-label={`${d.slug} rank`}
+              title="in-department rank (MANAGER+ sees sub-departments)"
+              style={styles.rank}
+            >
+              {DEPT_RANKS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
           </div>
         ))}
       </div>
@@ -69,7 +79,14 @@ const styles: Record<string, React.CSSProperties> = {
   group: { display: "flex", flexDirection: "column", gap: "0.15rem" },
   row: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" },
   item: { display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.8rem" },
-  mgr: { display: "inline-flex", alignItems: "center", gap: "0.2rem", fontSize: "0.7rem", opacity: 0.8 },
+  rank: {
+    fontSize: "0.7rem",
+    padding: "0.1rem 0.2rem",
+    borderRadius: "4px",
+    border: "1px solid rgba(127,127,127,0.4)",
+    background: "transparent",
+    color: "inherit",
+  },
   chips: { display: "flex", flexWrap: "wrap", gap: "0.5rem", borderTop: "1px dashed rgba(127,127,127,0.3)", paddingTop: "0.3rem" },
   actions: { display: "flex", alignItems: "center", gap: "0.4rem" },
   button: {

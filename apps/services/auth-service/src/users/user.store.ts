@@ -26,6 +26,8 @@ export interface User {
   tenant: string;
   department: string;
   clearance: number;
+  /** Company-wide seniority level (CompanyLevel); L3 = intern floor. */
+  level: number;
 }
 
 /** Self-signup input. The client supplies ONLY these — never any ABAC scope. */
@@ -44,6 +46,7 @@ export const SELF_SIGNUP_SCOPE = {
   tenant: 'unassigned',
   department: 'unassigned',
   clearance: 0,
+  level: 3, // L3 (intern floor) — the lowest company level
 } as const;
 
 export interface IdentityProvider {
@@ -87,6 +90,7 @@ const SEED_USERS: SeedUser[] = [
     tenant: 'acme',
     department: 'finance',
     clearance: 3,
+    level: 4,
     passwordEnv: 'SEED_FINANCE_PASSWORD',
   },
   {
@@ -96,6 +100,7 @@ const SEED_USERS: SeedUser[] = [
     tenant: 'acme',
     department: 'hr',
     clearance: 2,
+    level: 4,
     passwordEnv: 'SEED_HR_PASSWORD',
   },
 ];
@@ -126,6 +131,7 @@ export class InMemoryIdentityProvider implements IdentityProvider, OnModuleInit 
         tenant: seed.tenant,
         department: seed.department,
         clearance: seed.clearance,
+        level: seed.level,
         passwordHash: await hash(password, ARGON2_OPTIONS),
       };
       this.byId.set(user.id, user);

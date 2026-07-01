@@ -21,4 +21,11 @@ export class GrantDto {
   @Min(0)
   @Max(10)
   clearance?: number;
+
+  // Company seniority level (CompanyLevel). Floor is L3 (intern); cap loosely above L8.
+  @IsOptional()
+  @IsInt()
+  @Min(3)
+  @Max(12)
+  level?: number;
 }

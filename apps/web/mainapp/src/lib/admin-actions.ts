@@ -18,10 +18,12 @@ export async function grantUser(
   const userId = String(formData.get("userId") ?? "");
   const department = String(formData.get("department") ?? "").trim();
   const clearanceRaw = String(formData.get("clearance") ?? "").trim();
+  const levelRaw = String(formData.get("level") ?? "").trim();
 
   const body: Record<string, unknown> = {};
   if (department) body.department = department;
   if (clearanceRaw) body.clearance = Number(clearanceRaw);
+  if (levelRaw) body.level = Number(levelRaw);
 
   const jar = await cookies();
   const res = await fetch(`${GATEWAY_URL}/api/auth/users/${userId}/grant`, {
@@ -116,9 +118,12 @@ export async function setUserOrg(
 ): Promise<{ error?: string; ok?: boolean }> {
   const userId = String(formData.get("userId") ?? "");
   const slugs = formData.getAll("slug").map(String);
-  const managers = new Set(formData.getAll("manager").map(String));
   const keys = formData.getAll("compartment").map(String);
-  const memberships = slugs.map((slug) => ({ slug, isManager: managers.has(slug) }));
+  // Each checked department carries its own rank field (rank_<slug>); default IC.
+  const memberships = slugs.map((slug) => ({
+    slug,
+    rank: String(formData.get(`rank_${slug}`) ?? "IC"),
+  }));
 
   const jar = await cookies();
   const cookie = jar.toString();
