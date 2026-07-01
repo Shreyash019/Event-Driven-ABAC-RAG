@@ -43,18 +43,41 @@ export const CompanyLevel = {
 export type CompanyLevelValue = (typeof CompanyLevel)[keyof typeof CompanyLevel];
 
 /**
+ * Distribution scope of a document — which STRUCTURAL restrictions (tenant, department)
+ * apply. Orthogonal to `classification` (which grades sensitivity): audience controls the
+ * intended reader set, sensitivity controls how secret it is. Ordinal by openness. Default
+ * PRIVATE is the fail-closed value (GUARDRAILS §1.1 — absence must not mean public).
+ *
+ *  PRIVATE — normal ABAC: tenant + department both enforced.
+ *  ORG     — any employee in the tenant (department bypassed); still tenant-scoped.
+ *  WORLD   — anyone, including unassigned signups / outside the org (tenant + dept bypassed).
+ *
+ * The sensitivity axes (classification/minLevel/compartments) ALWAYS apply; a public
+ * document must therefore be stamped at the floor (PUBLIC, L3, no compartments) — enforce
+ * this at ingestion so an ORG/WORLD doc can never also be CONFIDENTIAL or compartmented.
+ */
+export const Audience = {
+  PRIVATE: 0,
+  ORG: 1,
+  WORLD: 2,
+} as const;
+export type AudienceLevel = (typeof Audience)[keyof typeof Audience];
+
+/**
  * The security matrix stamped on every ingested document/chunk (GUARDRAILS §1.1) and the
  * basis of the Qdrant ABAC pre-filter. Cross-service contract — a vector without it is a
  * bug; never default to public. (Proto/Go/Python mirror is added with the RAG services.)
  */
 export interface SecurityMatrix {
   tenant: string;
-  /** Department slugs the document belongs to. */
+  /** Department slugs the document belongs to (ignored when `audience` bypasses departments). */
   departments: string[];
   /** ClassificationLevel of the document. */
   classification: number;
   /** Minimum company seniority level required to view (CompanyLevel; default L3 = open). */
   minLevel: number;
+  /** Distribution scope (Audience) — which structural gates apply. Default PRIVATE. */
+  audience: number;
   /** Need-to-know compartment tags required to view (empty = none). */
   compartments: string[];
 }
